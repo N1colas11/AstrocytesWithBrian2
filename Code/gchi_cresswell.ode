@@ -1,0 +1,79 @@
+# gchi_cresswell.ode
+# Modified G-ChI model for analysis of compartmental calcium signaling as in Cresswell et al. (XXXX)
+# The model takes IP3 dynamics from Matrosov et al., Chapter 6, Computational Glioscience (2019)
+
+#-------------------------------------------------------
+# Parameters
+#-------------------------------------------------------
+# Lambda is in um^3
+p rho=0.9,Lambda=2100
+# IP3-related rates must be provided in 10^3*ymol/s (1 ymol = 1e-24 mol)
+p Jbeta=.5,Odelta=2.1,kappad=1,Kdelta=0.5
+p O3k=8.2,Kd=0.5,K3k=1.0
+p O5p=0.,K5p=10.
+p OmegaC=6.,OmegaL=0.11,Op=2.2,Kp=0.1
+p d1=0.13,d2=1.049,d3=0.9434,d5=0.082,O2=0.1335
+
+#-------------------------------------------------------
+# ODEs
+#-------------------------------------------------------
+# IP3   : cytosolic IP3
+# CaCYT : cytosolic calcium
+# CaER  : endoplasmic reticulum calcium
+# h     : IP3R deinactivation
+#-------------------------------------------------------
+dIP3/dt=(Jbeta+Jdelta(CaCYT,IP3)-J3k(CaCYT,IP3)-J5p(IP3)) * ( 1e3 / ( Lambda*(1.0-rho)) )
+dCaCYT/dt=Jcicr(CaCYT,h,IP3)+Jleak(CaCYT)-Jserca(CaCYT)
+dCaER/dt=(-Jcicr(CaCYT,h,IP3)-Jleak(CaCYT)+Jserca(CaCYT))*(1.0-rho)/rho
+dh/dt=(hinf(CaCYT,IP3)-h)/tauh(CaCYT,IP3)
+
+#-------------------------------------------------------
+# Formulas
+#-------------------------------------------------------
+# IP3 signaling
+Jdelta(CaCYT,IP3)=Odelta/(1+IP3/kappad)*CaCYT^2/(CaCYT^2+Kdelta^2)
+J3k(CaCYT,IP3)=O3k*CaCYT^4/(CaCYT^4+Kd^4)*IP3/(K3k+IP3)
+J5p(IP3)=O5p*IP3/K5p
+
+# Calcium core
+minf(IP3)=IP3/(IP3+d1)
+ninf(CaCYT)=CaCYT/(CaCYT+d5)
+Jcicr(CaCYT,h,IP3)=OmegaC*(minf(IP3)*ninf(CaCYT)*h)^3*(CaER-CaCYT)
+Jleak(CaCYT)=OmegaL*(CaER-CaCYT)
+Jserca(CaCYT)=Op*CaCYT^2/(Kp^2+CaCYT^2)
+
+# Gating variable
+Q2(IP3)=d2*(IP3+d1)/(IP3+d3)
+hinf(CaCYT,IP3)=Q2(IP3)/(Q2(IP3)+CaCYT)
+tauh(CaCYT,IP3)=1/O2/(Q2(IP3)+CaCYT)
+
+#-------------------------------------------------------
+# ICs
+#-------------------------------------------------------
+IP3(0)=0.3
+CaCYT(0)=0.0
+#CaER(0)=5.0
+CaER(0)=7.5
+h(0)=0.95
+
+#-------------------------------------------------------
+# Relevant parameter sets
+#-------------------------------------------------------
+set gchi_ch5 {Lambda=2100,rho=0.333,Jbeta=0.241,Odelta=0.043,kappad=1,Kdelta=0.5,O3k=0.279,Kd=0.5,K3k=1.0,O5p=14.719,K5p=10.,OmegaC=7.759,OmegaL=0.1,Op=5.499,Kp=0.1,d1=0.1,d2=4.5,d3=0.1,d5=0.05,O2=0.325}
+set gchi_0 {Lambda=2100,rho=0.156,Jbeta=9.413,Odelta=0.043,kappad=1,Kdelta=0.5,O3k=3.423,Kd=0.5,K3k=1.0,O5p=0.856,K5p=10.,OmegaC=6.0,OmegaL=0.11,Op=4.4,Kp=0.05,d1=0.13,d2=1.049,d3=0.9434,d5=0.08234,O2=0.2}
+
+#-------------------------------------------------------
+# AUTO settings
+#-------------------------------------------------------
+# NUMERICS
+@ xp=T, yp=CaCYT, xlo=0.0, ylo=0.0, xhi=100, yhi=5.
+@ total=100, dt=.01, meth=still, bound=100000, maxstor=1e6, atoler=1e-6, toler=1e-6
+## rho as 1st bifurcation parameter
+@ AUTOVAR=CaCYT, AUTOXMIN=0., AUTOXMAX=1.0, AUTOYMIN=0., AUTOYMAX=2.0
+@ DS=1e-3, DSMIN=1e-5, DSMAX=1e-2, PARMIN=0.05, PARMAX=0.95, NORMMAX=1000, NPR=10000, NMAX=10000, NTST=25
+
+
+#-------------------------------------------------------
+# End
+#-------------------------------------------------------
+done
