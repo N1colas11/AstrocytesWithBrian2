@@ -29,8 +29,8 @@ set_device('cpp_standalone', directory='./codegen', build_on_run=True)  # Use fa
 ################################################################################
 ### General parameters
 ## Something wrong with the time scales. I should be able to have much larger time steps
-duration = 500*msecond       # Total simulation time
-sim_dt = 20.*ms               # Integrator/sampling step (too small!!)  (beyond 0.30*ms, there is 2-point oscillation in solution)
+duration = 4500*msecond       # Total simulation time
+sim_dt = 40.*ms               # Integrator/sampling step (too small!!)  (beyond 0.30*ms, there is 2-point oscillation in solution)
 #duration = 50*second       # Total simulation time
 #sim_dt = 1*second               # Integrator/sampling step (too small!!)  (beyond 0.30*ms, there is 2-point oscillation in solution)
 # one pico = (1000)^4 yocto
@@ -46,24 +46,33 @@ O_P = 4.4*umolar/second      # Maximal Ca^2+ uptake rate by SERCAs (Op) (0.9)
 K_P = 0.05 * umolar          # Ca2+ affinity of SERCAs (Kp)
 Omega_C = 6./second           # Maximal rate of Ca^2+ release by IP_3Rs
 Omega_L = 0.11/second         # Maximal rate of Ca^2+ leak from the ER (0.1)
+
+#-------------------------------
+# Switches to turn diffusion on or off
+cDCa = 1.
+cDIP3 = 1.
 # --- Calcium diffusion
-D_Ca = 1*Hz
+D_Ca = cDCa * 1*Hz
+# --- IP3 diffusion
+D_IP3 = cDIP3 * 1*Hz     # TEMPORARY value
+#-------------------------------
+
 # --- IP_3R kinectics
-d_1 = 0.13*umolar            # IP_3 binding affinity
+d_1 = 0.13*mole #umolar            # IP_3 binding affinity
 d_2 = 1.049*umolar            # Ca^2+ inactivation dissociation constant (1.05)
 O_2 = 0.1335/umolar/second      # IP_3R binding rate for Ca^2+ inhibition (0.2)
-d_3 = 0.9434*umolar          # IP_3 dissociation constant
+d_3 = 0.9434*mole #umolar          # IP_3 dissociation constant
 d_5 = 0.082*umolar            # Ca^2+ activation dissociation constant (0.08)
 # --- IP_3 production
 O_delta = 0.02e-24*mole/second  # Maximal rate of IP_3 production by PLCdelta  (0.06)
-kappa_delta = 1.0* umolar    # Inhibition constant of PLC_delta by IP_3  (kappad?) (consistent with ode file)
+kappa_delta = 1.0*mole # umolar    # Inhibition constant of PLC_delta by IP_3  (kappad?) (consistent with ode file)
 #kappa_delta = 1.5* umolar    # Inhibition constant of PLC_delta by IP_3  (kappad?)
 K_delta = 0.1*umolar         # Ca^2+ affinity of PLCdelta
 # --- IP_3 degradation
 O_5P = 0.05e-24*mole/second       # Maximal rate of IP_3 degradation by IP-5P (O5p)
-K_5P = 10.*umolar
+K_5P = 10.*mole #umolar
 K_D = 0.7*umolar             # Ca^2+ affinity of IP3-3K
-K_3K = 1.0*umolar            # IP_3 affinity of IP_3-3K
+K_3K = 1.0*mole # umolar            # IP_3 affinity of IP_3-3K
 O_3K = 2.0e-24*mole/second     # Maximal rate of IP_3 degradation by IP_3-3K  (4.5)
 # --- IP_3 diffusion
 
@@ -81,9 +90,10 @@ O_3K = 2.0e-24*mole/second     # Maximal rate of IP_3 degradation by IP_3-3K  (4
 ################################################################################
 defaultclock.dt = sim_dt     # Set the integration time
 
+# (used to multiply ip3 equations)  *1e3/(Lambda*(1-rho))  : mmolar
 comp_eqs = '''
-dIP3/dt=(Jbeta+Jdelta-J3k-J5p)*1e3/(Lambda*(1-rho))  : mmolar
-dCaCYT/dt = Jcicr+Jleak-Jserca-Jdiff_Ca  : mmolar
+dIP3/dt=(Jbeta+Jdelta-J3k-J5p+Jdiff_IP3) : mole  # check sign of diffusion
+dCaCYT/dt = Jcicr+Jleak-Jserca+Jdiff_Ca  : mmolar
 dCaER/dt=(-Jcicr-Jleak+Jserca) / (rho / (1-rho) ) : mmolar
 dh/dt=(hinf-h)/tauh : 1
 
@@ -98,7 +108,9 @@ ninf=CaCYT/(CaCYT+d_5) : 1
 Jcicr=Omega_C*(minf*ninf*h)**3*(CaER-CaCYT) : mmolar/second
 Jleak=Omega_L*(CaER-CaCYT) : mmolar/second
 Jserca=O_P*CaCYT**2/(K_P**2+CaCYT**2) : mmolar/second
+
 Jdiff_Ca : mmolar/second
+Jdiff_IP3 : mole/second
 
 # Gating variable
 Q2=d_2*(IP3+d_1)/(IP3+d_3) : mmolar
@@ -116,12 +128,14 @@ compartments = NeuronGroup(N_comp, comp_eqs, method='rk4')
 compartments.CaCYT = [0.9,0.0]*umolar
 compartments.CaER = [7.5,7.5]*umolar
 compartments.h =  [0.95,0.95]
-compartments.IP3 = [0.001,0.0]*umolar   # Units: umolar or ymolar? 
+compartments.IP3 = [0.100,0.0]*mole  # umolar   # Units: umolar or ymolar? 
 
 # # Diffusion between compartments
 synapse_eqs = '''
 Jdiff_Ca_post = -D_Ca * (CaCYT_post - CaCYT_pre) : mmolar/second (summed)
+Jdiff_IP3_post = -D_IP3 * (IP3_post - IP3_pre) : mole/second (summed) 
 '''
+
 
 comp_to_comp = Synapses(compartments, compartments,
                         model=synapse_eqs)
