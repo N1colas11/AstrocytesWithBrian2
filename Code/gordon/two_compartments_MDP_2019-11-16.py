@@ -66,14 +66,16 @@ defaultclock.dt = sim_dt     # Set the integration time
 
 ### Astrocytes
 astro_eqs = '''
-dI/dt = (J_delta - J_3K - J_5P + J_ex + J_coupling)/(Lambda*(1-rho_A)) : mmolar
+vol_coef = Lambda*(1-rho_A) : meter**3
+dI/dt = (J_delta - J_3K - J_5P + J_ex + J_coupling)/vol_coef : mmolar
 J_delta = O_delta/(1 + I/kappa_delta) * C**2/(C**2 + K_delta**2) : mole/second
 J_3K = O_3K * C**4/(C**4 + K_D**4) * I/(I + K_3K)                : mole/second
 J_5P = O_5P*I/(I + K_5P)                                         : mole/second
 # Exogenous stimulation (rectangular wave with period of 50s and duty factor 0.4)
 stimulus = int((t % (50*second))<20*second)                      : 1
 delta_I_bias = I - I_bias*stimulus                               : mmolar
-J_ex = -F*delta_I_bias*(Lambda*(1-rho_A))                        : mole/second
+# external input (called J_beta in Evan's thesis)
+J_ex = -F*delta_I_bias*vol_coef                                  : mole/second
 # Diffusion between astrocytes
 J_coupling                                                       : mole/second
 
