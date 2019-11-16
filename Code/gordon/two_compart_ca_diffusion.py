@@ -132,8 +132,10 @@ compartments.IP3 = [0.100,0.0]*mole  # umolar   # Units: umolar or ymolar?
 
 # # Diffusion between compartments
 synapse_eqs = '''
-Jdiff_Ca_post = -D_Ca * (CaCYT_post - CaCYT_pre) : mmolar/second (summed)
+coef= 1 : 1
+Jdiff_Ca_post = -coef * D_Ca * (CaCYT_post - CaCYT_pre) : mmolar/second (summed)
 Jdiff_IP3_post = -D_IP3 * (IP3_post - IP3_pre) : mole/second (summed) 
+# multiply by the volume of postsynatpic compartment: Lambda (1-rhoA)
 '''
 
 
@@ -148,6 +150,8 @@ comp_to_comp.connect()
 astro_Ca_mon = StateMonitor(compartments, variables=['CaCYT'], record=True)
 astro_IP3_mon = StateMonitor(compartments, variables=['IP3'], record=True)
 astro_diff_mon = StateMonitor(compartments, variables=['Jdiff_Ca'], record=True)
+
+syn_mon = StateMonitor(compartments, variables=['Jdiff_IP3'], record=True)
 
 
 ################################################################################

@@ -153,16 +153,21 @@ synapse_eqs = '''
 coef = 4 / (L_pre + L_post)**2 : 1/meter**2
 DCa  = D_Ca  * coef: Hz/meter**2
 DIP3 = D_IP3 * coef: Hz/meter**2
-coef__post = coef : 1/meter**2 
-DCa__post = DCa : Hz/meter**2
-DIP3__post = DIP3 : Hz/meter**2
+#coef_post = coef : 1/meter**2 
+#DCa_post = DCa : Hz/meter**2
+#DIP3_post = DIP3 : Hz/meter**2
 A_ratio  = (R_post / R_pre)**2 : 1  # ratio of areas
 # Not clear whether A_ratio multiplies post or pre
 Jdiff_Ca_post  = -DCa  * (A_ratio * CaCYT_post - CaCYT_pre) : mmolar/second (summed)
 Jdiff_IP3_post = -DIP3 * (A_ratio *   IP3_post -   IP3_pre) : mole/second   (summed) 
 '''
 
-comp_to_comp = Synapses(compartments, compartments, model=synapse_eqs)
+recording = []
+def recordEvent(i):
+	recording.append(i)
+
+#comp_to_comp = Synapses(compartments, compartments, model=synapse_eqs)
+comp_to_comp = Synapses(compartments, compartments, on_pre='''dummy=recordEvent(i)''', model=synapse_eqs)
 
 comp_to_comp.connect()
 
@@ -172,8 +177,10 @@ comp_to_comp.connect()
 astro_Ca_mon = StateMonitor(compartments, variables=['CaCYT'], record=True)
 astro_IP3_mon = StateMonitor(compartments, variables=['IP3'], record=True)
 astro_diff_mon = StateMonitor(compartments, variables=['Jdiff_Ca'], record=True)
+
 synapses = StateMonitor(comp_to_comp, variables=['coef_'], record=False) #,'Dca','DIP3'], record=True)
-print("coef= ", synapses.coef_)
+
+#print("coef= ", synapses.coef_)
 
 
 ################################################################################
