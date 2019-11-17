@@ -39,7 +39,6 @@ d_5 = 0.08234*umolar            # Ca^2+ activation dissociation constant
 
 a_2 = 0.2/second/umolar     # Wrong in Evan (2019) and Maurizio (2009) and perhaps Li and Rinzel, 
                             #Appendix B (1994)
-
 k_ER = 0.05*umolar
 k_d = 0.7*umolar
 k_delta = 1*umolar
@@ -53,16 +52,17 @@ O_delta = 0.025*umolar/second
 O_3K = 2.*umolar/second
 O_5P = 0.05/second
 
+# Morphological parameters
 Li = 0.4
 Rb = 0.4
 #rho_Ai = 
 
+# Diffusion coefficients
 Dc = 0. * Hz
 Dce = 0. * Hz
 DI = 0. * Hz
 D       = 0.05 / second
-
-rho_A = 0.18  # revisit
+rho_A   = 0.18  # revisit
 
 """
 O_P = 0.9*umolar/second      # Maximal Ca^2+ uptake rate by SERCAs

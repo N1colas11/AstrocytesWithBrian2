@@ -16,7 +16,7 @@ rate_ = lambda x,L,r : x*L*(1-r)
 # Model parameters
 ################################################################################
 ### General parameters
-duration = 60*second       # Total simulation time
+duration = 100*second       # Total simulation time
 sim_dt = 50*ms               # Integrator/sampling step
 
 ### Astrocyte parameters
@@ -75,6 +75,7 @@ J_5P = O_5P*I/(I + K_5P)                                         : mole/second
 stimulus = int((t % (50*second))<20*second)                      : 1
 delta_I_bias = I - I_bias*stimulus                               : mmolar
 # external input (called J_beta in Evan's thesis)
+#J_ex = 0*mole/second : mole/second    # produces a signal. Why? 
 J_ex = -F*delta_I_bias*vol_coef                                  : mole/second
 # Diffusion between astrocytes
 J_coupling                                                       : mole/second
