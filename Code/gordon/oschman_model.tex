@@ -99,6 +99,19 @@ where $w_h$ is the half-width of the Poisson pulse, specified by the user
 and $P(t, w_h)$ is a Poisson pulse generation function. $U(0,1)$ is random variable sampled
 from a Uniform distribution. 
 
+\subsection{Morphological parameters}
+\begin{verbatim}
+//From branching: 
+
+branches.back()->radius = g.R0; // soma radius
+
+branches.back()->r_ER = sqrt( g.det_rho * pow(branches.back()->radius - .1*branches.back()->radius, 2.) );  //choosing rho_soma = .15 and radius_soma  =R0. we get r_ER = sqrt(rho_bar * ( R-.1R )^2) = 1.94
+
+branches.back()->rho = pow(branches.back()->r_ER,2.) / pow(branches.back()->radius,2.)  ; // rho = r_ER^2 / R^2
+
+branches.back()->rho_A = branches.back()->rho / ( 1. - branches.back()->rho )  ; // Compute rho_A from rho
+\end{verbatim}
+
 %----------------------------------------------
 \subsection{List of all parameters, taken from C++ code}
 \begin{table}[h]
@@ -115,6 +128,7 @@ $d_{3}$ & 0.9434 &\\
 $d_{5}$ &  0.08234 &\\ \hline
 $a_{2}$ &  0.2 &\\ \hline
 $k_{ER}$ & 0.05 &\\
+$k_{d}$ & 0.7 &\\
 $k_{\delta}$ & 1. &\\
 $K_{\delta}$ & 0.5  &\\
 $k_{\pi}$ & .6 &\\
