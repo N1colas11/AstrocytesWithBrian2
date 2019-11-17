@@ -44,7 +44,7 @@ K_D = 0.7*umolar             # Ca^2+ affinity of IP3-3K
 K_3K = 1.0*umolar            # IP_3 affinity of IP_3-3K
 O_3K = 4.5*umolar/second     # Maximal rate of IP_3 degradation by IP_3-3K
 # --- IP_3 diffusion
-F = 0.09*umolar/second    # Maximal exogenous IP3 flow
+#F = 0.09*umolar/second    # Maximal exogenous IP3 flow
 I_Theta = 0.3*umolar         # Threshold gradient for IP_3 diffusion
 omega_I = 0.05*umolar        # Scaling factor of diffusion
 
@@ -57,7 +57,7 @@ O_delta = 0.6 * umolar * Lambda * (1-rho_A) / second
 O_3K    = 4.5 * umolar * Lambda * (1-rho_A) / second
 O_5P    = 0.05 * umolar * Lambda * (1-rho_A) / second
 F       = 0.1 / second
-D       = 0.05 / second
+D       = 0.05 / second  # setting D to zero has no effect. Why?
 
 ################################################################################
 # Model definition
@@ -98,7 +98,7 @@ I_bias : mmolar (constant)
 N_astro = 2 # Total number of astrocytes in the network
 astrocytes = NeuronGroup(N_astro, astro_eqs, method='rk4')
 astrocytes.I_bias = np.asarray([10, 0.],dtype=float)*umolar
-astro_mon = StateMonitor(astrocytes, variables=['C'], record=True)
+astro_mon = StateMonitor(astrocytes, variables=['C', 'I'], record=True)
 
 # Diffusion between astrocytes
 astro_to_astro_eqs = '''
@@ -122,9 +122,18 @@ print("astro_to_astro= ", syn_mon.coef)
 ################################################################################
 # Analysis and plotting
 ################################################################################
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6.26894, 6.26894 * 0.66),
+fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(6.26894, 6.26894 * 0.66),
                        gridspec_kw={'left': 0.1, 'bottom': 0.12})
+#ax.plot(astro_mon.t/second,astro_mon.C[0]/umolar,'b-')
+#ax.plot(astro_mon.t/second,astro_mon.C[1]/umolar,'r-')
+ax = axes[0]
 ax.plot(astro_mon.t/second,astro_mon.C[0]/umolar,'b-')
 ax.plot(astro_mon.t/second,astro_mon.C[1]/umolar,'r-')
+ax.set_ylabel("CaCYT")
+ax = axes[1]
+ax.plot(astro_mon.t/second,astro_mon.I[0]/umolar,'b-')
+ax.plot(astro_mon.t/second,astro_mon.I[1]/umolar,'r-')
+ax.set_ylabel("I")
+plt.tight_layout()
 
 plt.show()
