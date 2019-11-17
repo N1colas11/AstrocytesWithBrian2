@@ -21,15 +21,35 @@ rate_ = lambda x,L,r : x*L*(1-r)
 # Model parameters (consistent with C++ and dissertation)
 ################################################################################
 ### General parameters
-duration = 100*second       # Total simulation time
+duration = 60*second       # Total simulation time
 sim_dt = 50*ms               # Integrator/sampling step
 
 ### Astrocyte parameters
 # ---  Calcium fluxes
 # Using my table from oschman_model.tex
+
+# Values in Evan Dissertation
+v_er = 4.4*umolar/second   # SERCA pump max amplitude
 r_c = v_IPR = Omega_C = 6/second
 r_l = v_l = 0.11/second
-v_er = 4.4*umolar/second
+
+# Parameters for MDP implementation (no equation for CE, closed system)
+Omega_C = 6/second
+Omega_L = 0.1/second
+
+# Ratio of ER to cytosolic volume (assumed constant across cells)
+rho_A   = 0.18  # revisit
+
+# Values for r_c and r_l to use to get results consistent with MDP
+r_c = Omega_C * rho_A
+r_l = Omega_L * rho_A
+
+# Value provided by MDP, taking into account that his equations are expressed in terms of C_T
+# there is no equation for C_ER (no need if diffusion of CaCYT and C_ER are zero)
+r_c = v_IPR = Omega_C = 6/second
+r_l = v_l = 0.11/second
+v_er = 1.0*umolar/second   # SERCA pump max amplitude
+
 k_er = 0.05*umolar
 
 d_1 = 0.13*umolar            # IP_3 binding affinity
@@ -66,9 +86,8 @@ Rb = 0.4
 # Diffusion coefficients
 Dc = 0. * Hz
 Dce = 0. * Hz
-DI = 0. * Hz
-D       = 0.05  * 0.001 / second
-rho_A   = 0.18  # revisit
+D_I = 0. * Hz
+D       = 0.05 / second
 
 # IP3 external production
 F = 0.2 * Hz                 # Maximal exogenous IP3 flow
@@ -106,24 +125,20 @@ rhoA = rho / (1-rho) : 1
 
 dCaCYT/dt = Jchan + Jleak - Jpump : mmolar
 dCaER/dt  = -(Jchan + Jleak - Jpump) / rhoA : mmolar
-# Input J_ex or J_beta missing
-dI/dt = (J_ex + J_delta - J_3K - J_5P ) / vol_coef : mmolar   # return to J_coupling once code works
-#dI/dt = (J_delta - J_3K - J_5P + J_coupling) : mmolar
 dh/dt = (h_inf - h) * Omega_h                                  : 1
+# Input J_ex or J_beta missing
+dI/dt = (J_ex + J_delta - J_3K - J_5P + J_coupling) / vol_coef : mmolar   # return to J_coupling once code works
+
 
 #J_delta = O_delta * Hill(kappa_delta, I, 1) * Hill(CaCYT, K_delta, 2.): mole/second
-J_delta = O_delta * (kappa_delta / (kappa_delta+I)) * (CaCYT**2 / (CaCYT**2+K_delta**2)) : mole/second
+J_delta = 0*O_delta * (kappa_delta / (kappa_delta+I)) * (CaCYT**2 / (CaCYT**2+K_delta**2)) : mole/second
 
 #J_3K = O_3K * Hill(k_d, CaCYT, 4) * Hill(I, k_3K, 1.)          : mole/second  
-J_3K = O_3K * (k_d**4 / (CaCYT**4+k_d**4)) * (I / (I + k_3K))   : mole/second  
+J_3K = 0*O_3K * (k_d**4 / (CaCYT**4+k_d**4)) * (I / (I + k_3K))   : mole/second  
 
 # Simplified version: J_5P = rbar * I (units of rbar are then Hz
 #J_5P = O_5P * Hill(I, k_5P, 1)                                    : mole/second
-J_5P = O_5P * (I / (I + k_5P))      : mole/second
-
-#J_delta = O_delta/(1 + I/kappa_delta) * C**2/(C**2 + K_delta**2) : mole/second # MDP
-#J_3K = O_3K * C**4/(C**4 + K_D**4) * I/(I + K_3K)                : mole/second # MDP
-#J_5P = O_5P*I/(I + K_5P)                                         : mole/second # MDP
+J_5P = 0*O_5P * (I / (I + k_5P))      : mole/second
 
 Q_2 = d_2 * (I + d_1)/(I + d_3)                           : mmolar
 #minf = Hill(I, d_1, 1)   : 1
@@ -148,7 +163,7 @@ Omega_h = a_2 * (Q_2 + CaCYT)                        : Hz
 stimulus = int((t % (50*second))<20*second)                       : 1
 delta_I_bias = I - I_bias*stimulus                                : mmolar
 # external input (called J_beta in Evan's thesis)
-J_ex = -F * delta_I_bias * vol_coef                               : mole/second
+J_ex = 1*(-F * delta_I_bias * vol_coef)                           : mole/second
 
 # Diffusion between astrocytes
 J_coupling                                                        : mole/second
@@ -161,20 +176,23 @@ I_bias : mmolar (constant)
 N_astro = 2 # Total number of astrocytes in the network
 astrocytes = NeuronGroup(N_astro, astro_eqs_evan_thesis, method='rk4')
 astrocytes.I_bias = np.asarray([10, 0.],dtype=float)*umolar
-astro_mon = StateMonitor(astrocytes, variables=['CaCYT', 'I'], record=True)
+astro_mon = StateMonitor(astrocytes, variables=['CaER', 'CaCYT', 'I', 'J_coupling', 'vol_coef', 'J_ex'], record=True)
 
-astrocytes.CaCYT = [0.9,0.0]*umolar
+#astrocytes.CaCYT = [0.9,0.0]*umolar
 #astrocytes.CaER = [7.5,7.5]*umolar
 #astrocytes.h =  [0.95,0.95]
-astrocytes.I = [0.100,0.2]*umolar  # umolar   # Units: umolar or ymolar? 
-astrocytes.rho = 0.2
+#astrocytes.I = [0.100,0.2]*umolar  # umolar   # Units: umolar or ymolar? 
+astrocytes.rho = 0.18
 astrocytes.I_bias = np.asarray([10, 0.],dtype=float)*umolar
+astrocytes.CaER = 2*umolar   # C_T in MDP code
 
+##########################################3
 # Diffusion between astrocytes
+##########################################3
 astro_to_astro_eqs = '''
 coef = 0 : 1
 delta_I = I_post - I_pre        : mmolar
-J_coupling_post = -coef*D*delta_I*(Lambda*(1-rho_A))  : mole/second (summed)
+J_coupling_post = -coef * D * delta_I * vol_coef  : mole/second (summed)
 '''
 astro_to_astro = Synapses(astrocytes, astrocytes,
                           model=astro_to_astro_eqs)
@@ -189,21 +207,32 @@ run(duration, report='text')
 print(syn_mon.coef)
 print("astro_to_astro= ", syn_mon.coef)
 print("CaCYT: ", astro_mon.CaCYT)
+print("CaER: ", astro_mon.CaER)
 print("I: ", astro_mon.I)
+print("J_coupling: ", astro_mon.J_coupling)
+#print("vol_coef: ", astro_mon.vol_coef)
 
 ################################################################################
 # Analysis and plotting
 ################################################################################
-fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(6.26894, 6.26894 * 0.66),
+fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(6.26894, 6.26894 * 0.66),
                        gridspec_kw={'left': 0.1, 'bottom': 0.12})
 ax = axes[0]
 ax.plot(astro_mon.t/second,astro_mon.CaCYT[0]/umolar,'b-')
 ax.plot(astro_mon.t/second,astro_mon.CaCYT[1]/umolar,'r-')
 ax.set_ylabel("CaCYT")
 ax = axes[1]
+ax.plot(astro_mon.t/second,astro_mon.CaER[0]/umolar,'b-')
+ax.plot(astro_mon.t/second,astro_mon.CaER[1]/umolar,'r-')
+ax.set_ylabel("CaER")
+ax = axes[2]
 ax.plot(astro_mon.t/second,astro_mon.I[0]/umolar,'b-')
 ax.plot(astro_mon.t/second,astro_mon.I[1]/umolar,'r-')
 ax.set_ylabel("I")
+ax = axes[3]
+ax.plot(astro_mon.t/second,astro_mon.J_ex[0]/umolar,'b-')
+ax.plot(astro_mon.t/second,astro_mon.J_ex[1]/umolar,'r-')
+ax.set_ylabel("J_ex")
 plt.tight_layout()
 
 plt.savefig("plot.pdf")
