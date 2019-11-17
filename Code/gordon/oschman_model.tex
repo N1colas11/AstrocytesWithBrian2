@@ -50,7 +50,7 @@ where the currents are:
 \begin{align}
 v_\delta(c,p) &=  O_\delta * (1 - \Hill(k_\delta, p, 1) ) * \Hill(c,k_{PLC\delta},2)  \\
 v_{3k}(c,p) &= O_{3k} * \Hill(c,k_d,4) * \Hill(p, k_3, 1) \\
-v_{5p}(p) &= \bar{r}_{5p} p
+v_{5p}(p) &= O_{5p} p
 \end{align}
 
 \subsection{Equation for $h$}
@@ -96,7 +96,8 @@ $$
 \glu = 70\; U(0,1) P(t, w_h)
 $$
 where $w_h$ is the half-width of the Poisson pulse, specified by the user 
-and $P(t, w_h)$ is a Poisson pulse generation function. 
+and $P(t, w_h)$ is a Poisson pulse generation function. $U(0,1)$ is random variable sampled
+from a Uniform distribution. 
 
 %----------------------------------------------
 \subsection{List of all parameters, taken from C++ code}
@@ -104,22 +105,25 @@ and $P(t, w_h)$ is a Poisson pulse generation function.
 \begin{tabular}{|lll|}
 \hline
 Symbol & Value & Units \\ \hline
-$r_c$ & 6 & 1 \\
-$r_l$ & 0.11  &\\
+$r_c$ $(v_{IPR})$ & 6 & 1 \\
+$r_l$ $(v_l)$  & 0.11  &\\
 $v_{er}$ & 4.4  &\\
 $k_{er}$ & 0.05 &\\ \hline
 $d_{1}$ & 0.13  &\\
 $d_{2}$ & 1.049  &\\
 $d_{3}$ & 0.9434 &\\
 $d_{5}$ &  0.08234 &\\ \hline
-$a_{2}$ &  0.2 &\\
+$a_{2}$ &  0.2 &\\ \hline
+$k_{ER}$ & 0.05 &\\
 $k_{\delta}$ & 1. &\\
-$k_{\pi}$ & 1. &\\
+$K_{\delta}$ & 0.5  &\\
+$k_{\pi}$ & .6 &\\
+$k_3$ $(k_{3K})$ & 1. &\\     % or k_{3K}
 $k_R$ & 1.3 &\\
-$k_p$ & 10. &\\
+$k_p$ & 10. &\\ \hline
 $O_{\delta}$ & 0.025 &\\
 $O_{3k}$ & 2. &\\
-$\bar{r}_{5p}$ & 0.05 &  \\ \hline
+$O_{5p}$ & 0.05 &\\ \hline
 $L_i$ & 0.4 & \\ 
 $R_b$ & 0.4 & \\  
 $\rho_{A,i}$ & & \\  
@@ -138,7 +142,7 @@ Symbol & Description & Value & Units       \\
   $v_{IPR}$         & Maximal \ca release rate by IPR   &   6. & s$^{-1}$    \\
   $v_{ER}$         & Maximal \ca uptake rate by SERCA pumps  &   4.4 &  $\mu\mathrm{M}s^{-1}$    \\
   $v_l$         & \ca leak rate  &   .11   & $s^{-1}$ \\
-  $O_\beta$         & Maximal rate of IP$_3$ production by PLC$\beta$  &   5.5  &   $\mu\mathrm{M}s^{-1}$  \\
+  $O_\beta$         & Maximal rate of IP$_3$ production by PLC$\beta$  &   5.5  &   $\mu\mathrm{M}s^{-1}$  \\ \hline
   $O_\delta$    & Maximal rate of IP$_3$ production by PLC$\delta$  &   .025   &   $\mu\mathrm{M}s^{-1}$\\
   $O_{3K}$    & Maximal rate of IP$_3$ degradation by IP$_3$3K  &   2.   &  $\mu\mathrm{M}s^{-1}$ \\
   $O_{5P}$         & Maximal rate of IP$_3$ degradation by IP-5P  &   .05  & $s^{-1}$   \\
