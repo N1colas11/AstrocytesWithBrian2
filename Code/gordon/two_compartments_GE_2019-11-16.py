@@ -10,6 +10,8 @@ from brian2 import *
 
 import matplotlib.pylab as plt
 
+print("\n========== NEW SIMULATION: GE =========================================")
+
 # set_device('cpp_standalone', directory='./codegen', build_on_run=True)  # Use fast "C++ standalone mode"
 # set_device('cython')
 codegen.target = 'cython'
@@ -64,7 +66,8 @@ d_5 = 0.08234*umolar            # Ca^2+ activation dissociation constant
 k_ER = 0.05*umolar
 k_d = 0.7*umolar
 kappa_delta = 1*umolar
-K_delta = 0.5*umolar    #<<<<<<<<<<<<<<<<<<
+K_delta = 0.5*umolar    #<<<<<<<<<<<<<<<<<< (value used in Evan's thesis)
+K_delta = 100*umolar    # (value used in MDP code) WHICH TO CHOOSE? 
 k_pi = 0.6*umolar
 k_3 = k_3K = 1.*umolar
 k_R = 1.3 # units unclear
@@ -85,7 +88,6 @@ O_2 = 1.*umolar/second #
 # Morphological parameters
 Li = 0.4
 Rb = 0.4
-#rho_Ai = 
 
 # Diffusion coefficients
 Dc = 0. * Hz
@@ -134,8 +136,8 @@ astro_eqs_evan_thesis = '''
 #   Morphology
 ################################
 # Lambda is the reference volume of the compartment, taken as the soma volume
-rho                       : 1  # Ratio of ER to Compartment vol
-rho_A = rho / (1-rho)     : 1
+rho_A                     : 1  # Ratio of ER to CyT vol
+rho = rho_A / (1+rho_A)   : 1  # Ratio of ER to Compartment vol
 vol_coef = Lambda*(1-rho) : meter**3  # Cytosolic volume
 
 ##############################
@@ -143,27 +145,24 @@ vol_coef = Lambda*(1-rho) : meter**3  # Cytosolic volume
 ##############################
 dCaCYT/dt = Jchan + Jleak - Jpump            : mmolar
 dCaER/dt  = -(Jchan + Jleak - Jpump) / rho_A : mmolar
-dh/dt = 0*(h_inf - h) * Omega_h                : 1
+dh/dt = 1*(h_inf - h) * Omega_h                : 1
 
 # Input J_ex or J_beta missing
-dI/dt = (J_ex + J_delta - J_3K - J_5P + J_coupling) / vol_coef : mmolar
+dI/dt = 1*(J_ex + J_delta - J_3K - J_5P + J_coupling) / vol_coef : mmolar
 
 ###############################
 #   Currents / Fluxes
 ###############################
 
-J_delta = 1*O_delta * (kappa_delta / (kappa_delta+I)) * (CaCYT**2 / (CaCYT**2+K_delta**2)) : mole/second # I close to the same
+J_delta = 1*O_delta * (kappa_delta / (kappa_delta+I)) * 
+                      (CaCYT**2 / (CaCYT**2+K_delta**2))             : mole/second # I close to the same
+J_3K = 1*O_3K * (CaCYT**4 / (CaCYT**4+k_d**4)) * (I / (I + k_3K))    : mole/second  # I not the same as MDP
 
-J_3K = 0*O_3K * (CaCYT**4 / (CaCYT**4+k_d**4)) * (I / (I + k_3K))   : mole/second  # I not the same as MDP
+# Simplified version: J_5P = rbar * I 
+# (units of rbar are then Hz)
+J_5P = 1*O_5P * I / (I + k_5P)                                       : mole/second  # I exactly the same  as MDP
 
-# Simplified version: J_5P = rbar * I (units of rbar are then Hz
-J_5P = 0*O_5P * I / (I + k_5P)      : mole/second  # I exactly the same  as MDP
-
-Q_2 = d_2 * (I + d_1)/(I + d_3)                           : mmolar
-#minf = Hill(I, d_1, 1)   : 1
 minf = I / (I + d_1) : 1
-
-#ninf = Hill(CaCYT, d_5, 1)  : 1
 ninf = CaCYT / (CaCYT + d_5) : 1
 
 Jchan = 1*r_c * (minf*ninf*h)**3 * (CaER - CaCYT)     : mmolar/second
@@ -171,10 +170,9 @@ Jchan = 1*r_c * (minf*ninf*h)**3 * (CaER - CaCYT)     : mmolar/second
 Jleak = 1*r_l * (CaER - CaCYT)                          : mmolar/second
 Jpump = 1*v_er * CaCYT**2 / (CaCYT**2 + k_er**2)      : mmolar/second
 
-#h_inf = Hill(Q_2, CaCYT, 1)                          : 1
+Q_2 = d_2 * (I + d_1)/(I + d_3)                           : mmolar
 h_inf = Q_2 / (Q_2 + CaCYT)                           : 1
 
-#Omega_h = Omega_2 * (Q_2 + CaCYT)                    : Hz
 Omega_h = a_2 * (Q_2 + CaCYT)                         : Hz
 #tau_h = 1/(a_2 * (Q_2 + CaCYT))                      : second  #(REVISIT CHOICES OF COEFFICIENTS)
 
@@ -194,8 +192,8 @@ I_bias : mmolar (constant)
 
 N_astro = 2 # Total number of astrocytes in the network
 astrocytes = NeuronGroup(N_astro, astro_eqs_evan_thesis, method='rk4')
-astro_mon = StateMonitor(astrocytes, variables=['CaER', 'CaCYT', 'I', 'J_coupling', 'vol_coef', 
-   'J_delta', 'J_ex', 'Jchan', 'Jleak', 'Jpump', 'rho_A', 'h'], record=True)
+astro_mon = StateMonitor(astrocytes, variables=['CaER', 'CaCYT', 'I', 'J_coupling', 'vol_coef',
+   'J_ex', 'Jchan', 'Jleak', 'Jpump', 'rho_A', 'rho', 'h', 'J_delta', 'J_3K', 'J_5P'], record=True)
 
 #######################################
 #   Initial conditions
@@ -204,7 +202,7 @@ astro_mon = StateMonitor(astrocytes, variables=['CaER', 'CaCYT', 'I', 'J_couplin
 #astrocytes.CaER = [7.5,7.5]*umolar
 #astrocytes.h =  [0.95,0.95]
 #astrocytes.I = [0.100,0.2]*umolar  # umolar   # Units: umolar or ymolar? 
-astrocytes.rho = 0.18
+astrocytes.rho_A  = 0.18
 astrocytes.I_bias = np.asarray([10, 0.],dtype=float)*umolar
 astrocytes.CaER = 2.*umolar/rho_A   # C_T in MDP code
 
@@ -232,11 +230,15 @@ print("I: ", astro_mon.I[0])
 print("Jchan= ", astro_mon.Jchan[0])
 print("Jleak= ", astro_mon.Jleak[0])
 print("Jpump= ", astro_mon.Jpump[0])
-print("rho_A= ", astro_mon.rho_A[0])
 print("J_coupling: ", astro_mon.J_coupling[0])
 print("vol_coef= ", astro_mon.vol_coef[0])
 print("h= ", astro_mon.h[0])
 print("J_delta= ", astro_mon.J_delta[0])
+print("J_3K= ", astro_mon.J_3K[0])
+print("J_5P= ", astro_mon.J_5P[0])
+print("rho_A= ", rho_A)
+print("monitor rho_A= ", astro_mon.rho_A[0])
+print("rho= ", astro_mon.rho[0])
 
 ################################################################################
 # Analysis and plotting

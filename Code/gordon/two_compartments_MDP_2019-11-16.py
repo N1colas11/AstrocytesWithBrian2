@@ -12,6 +12,8 @@ codegen.target = 'cython'
 # A simple lambda just for parameter equivalence
 rate_ = lambda x,L,r : x*L*(1-r)
 
+print("\n========== NEW SIMULATION: MDP =========================================")
+
 ################################################################################
 # Model parameters
 ################################################################################
@@ -78,14 +80,19 @@ defaultclock.dt = sim_dt     # Set the integration time
 
 ### Astrocytes
 astro_eqs = '''
-vol_coef = Lambda*(1-rho_A) : meter**3
+# Lambda is the reference volume of the compartment, taken as the soma volume
+rho_A                     : 1  # Ratio of ER to Compartment vol
+rho = rho_A / (1+rho_A)   : 1
+
+vol_coef = Lambda*(1-rho) : meter**3  # Cytosolic volume
+
 dI/dt = (J_ex + J_delta - J_3K - J_5P + J_coupling)/vol_coef : mmolar
 J_delta = 1*O_delta/(1 + I/kappa_delta) * C**2/(C**2 + K_delta**2) : mole/second
 
-J_3K = 0*O_3K * C**4/(C**4 + K_D**4) * I/(I + K_3K)                : mole/second  # ERROR? 
+J_3K = 1*O_3K * C**4/(C**4 + K_D**4) * I/(I + K_3K)                : mole/second  # ERROR? 
 #J_3K = 1*O_3K * (k_d**4 / (CaCYT**4+k_d**4)) * (I / (I + k_3K))   : mole/second  # I not the same as MDP
 
-J_5P = 0*O_5P*I/(I + K_5P)                                         : mole/second
+J_5P = 1*O_5P*I/(I + K_5P)                                         : mole/second
 
 # Exogenous stimulation (rectangular wave with period of 50s and duty factor 0.4)
 stimulus = int((t % (50*second))<20*second)                  : 1
@@ -99,11 +106,12 @@ J_coupling                                                   : mole/second
 
 # Ca^2+-induced Ca^2+ release:  (WHY IS CALCIUM ALWAYS ZERO? Currents Are not zero!!)
 dC/dt = (J_chan + J_leak - J_pump)                           : mmolar
-dh/dt = 0.*(h_inf - h)/tau_h                                 : 1
+dh/dt = 1.*(h_inf - h)/tau_h                                 : 1
 
-J_chan =  Omega_C * m_inf**3 * h**3 * (C_T - (1 + rho_A)*C)   : mmolar/second
+J_chan =  1*Omega_C * m_inf**3 * h**3 * (C_T - (1 + rho_A)*C)   : mmolar/second
 J_leak =  1*Omega_L * (C_T - (1 + rho_A)*C)                     : mmolar/second
-J_pump =  O_P * C**2/(C**2 + K_P**2)                          : mmolar/second
+C_ER = (C_T - C) / rho_A                                        : mmolar
+J_pump =  1*O_P * C**2/(C**2 + K_P**2)                          : mmolar/second
 
 m_inf = I/(I + d_1) * C/(C + d_5)                            : 1
 h_inf = Q_2/(Q_2 + C)                                        : 1
@@ -117,8 +125,11 @@ I_bias : mmolar (constant)
 N_astro = 2 # Total number of astrocytes in the network
 astrocytes = NeuronGroup(N_astro, astro_eqs, method='rk4')
 astrocytes.I_bias = np.asarray([10, 0.],dtype=float)*umolar
-astro_mon = StateMonitor(astrocytes, variables=['C', 'I', 'J_ex', 'J_chan', 'J_leak', 'J_pump', 'J_delta', 
-    'vol_coef', 'J_coupling'], record=True)
+astrocytes.rho_A = 0.18
+
+astro_mon = StateMonitor(astrocytes, variables=['C', 'I', 'J_ex', 'J_chan', 'J_leak', 'J_pump', 
+    'rho_A', 'rho',
+    'vol_coef', 'J_coupling', 'C_ER', 'J_delta', 'J_3K', 'J_5P'], record=True)
 
 # Diffusion between astrocytes
 astro_to_astro_eqs = '''
@@ -138,6 +149,8 @@ run(duration, report='text')
 
 #print("coef= ", syn_mon.coef)
 print("C= ", astro_mon.C[0])
+print("C_T= ", C_T)
+print("C_ER= C_ER = (C_T - C) / rho_A: ", astro_mon.C_ER[0])
 print("I= ", astro_mon.I[0])
 print("J_chan= ", astro_mon.J_chan[0])
 print("J_leak= ", astro_mon.J_leak[0])
@@ -145,6 +158,10 @@ print("J_pump= ", astro_mon.J_pump[0])
 print("vol_coef= ", astro_mon.vol_coef[0])
 print("J_coupling= ", astro_mon.J_coupling[0])
 print("J_delta= ", astro_mon.J_delta[0])
+print("J_3K= ", astro_mon.J_3K[0])
+print("J_5P= ", astro_mon.J_5P[0])
+print("rho_A= ", astro_mon.rho_A[0])
+print("rho= ", astro_mon.rho[0])
 
 ################################################################################
 # Analysis and plotting
