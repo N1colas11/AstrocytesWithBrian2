@@ -23,8 +23,8 @@ rate_ = lambda x,L,r : x*L*(1-r)
 # Model parameters (consistent with C++ and dissertation)
 ################################################################################
 ### General parameters
-duration = 60*second       # Total simulation time
 duration = 150*ms    # Total simulation time
+duration = 60*second       # Total simulation time
 sim_dt = 50*ms               # Integrator/sampling step
 
 ### Astrocyte parameters
