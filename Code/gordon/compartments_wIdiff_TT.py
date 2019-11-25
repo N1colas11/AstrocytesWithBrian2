@@ -1,3 +1,19 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Nov 22 17:22:06 2019
+
+@author: tnt19a
+"""
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Nov 22 17:15:28 2019
+
+@author: tnt19a
+"""
+
 # sent by Maurizio De Pitta on 2019-11-16
 
 import numpy as np
@@ -12,15 +28,15 @@ codegen.target = 'cython'
 # A simple lambda just for parameter equivalence
 rate_ = lambda x,L,r : x*L*(1-r)
 
-print("\n========== NEW SIMULATION: MDP =========================================")
-
 ################################################################################
 # Model parameters
 ################################################################################
 ### General parameters
 duration = 60*second       # Total simulation time
-duration = 150*ms          # Total simulation time
-sim_dt = 100*ms             # Integrator/sampling step
+duration = 5*10**5 *ms          # Total simulation time
+sim_dt = 25*ms             # Integrator/sampling step
+sim_dt = 12*ms             # Integrator/sampling step
+sim_dt = 200*ms             # Integrator/sampling step
 
 ### Astrocyte parameters
 # ---  Calcium fluxes
@@ -80,17 +96,12 @@ defaultclock.dt = sim_dt     # Set the integration time
 
 ### Astrocytes
 astro_eqs = '''
-# Lambda is the reference volume of the compartment, taken as the soma volume
-rho_A                     : 1  # Ratio of ER to Compartment vol
-rho = rho_A / (1+rho_A)   : 1
-
-vol_coef = Lambda*(1-rho) : meter**3  # Cytosolic volume
-
+vol_coef = Lambda*(1-rho) : meter**3
 dI/dt = (J_ex + J_delta - J_3K - J_5P + J_coupling)/vol_coef : mmolar
 J_delta = 1*O_delta/(1 + I/kappa_delta) * C**2/(C**2 + K_delta**2) : mole/second
 
 J_3K = 1*O_3K * C**4/(C**4 + K_D**4) * I/(I + K_3K)                : mole/second  # ERROR? 
-#J_3K = 1*O_3K * (k_d**4 / (CaCYT**4+k_d**4)) * (I / (I + k_3K))   : mole/second  # I not the same as MDP
+#J_3K = 0*O_3K * (k_d**4 / (CaCYT**4+k_d**4)) * (I / (I + k_3K))   : mole/second  # I not the same as MDP
 
 J_5P = 1*O_5P*I/(I + K_5P)                                         : mole/second
 
@@ -100,8 +111,7 @@ J_5P = 1*O_5P*I/(I + K_5P)                                         : mole/second
 # length = 20*second
 # 0->1 at t=0, 50, 100, ...
 # 1->0 at t=20, 70, 120, ...
-#stimulus = int((t % (50*second))<20*second)                 : 1
-# t and 100 are in the same units: seconds
+#stimulus = int((t % (50*second))<20*second)                  : 1
 stimulus = sin(2*pi*t/(100*second))**10                               : 1
 delta_I_bias = I - I_bias*stimulus                           : mmolar
 
@@ -115,10 +125,9 @@ J_coupling                                                   : mole/second
 dC/dt = (J_chan + J_leak - J_pump)                           : mmolar
 dh/dt = 1.*(h_inf - h)/tau_h                                 : 1
 
-J_chan =  1*Omega_C * m_inf**3 * h**3 * (C_T - (1 + rho_A)*C)   : mmolar/second
+J_chan =  Omega_C * m_inf**3 * h**3 * (C_T - (1 + rho_A)*C)   : mmolar/second
 J_leak =  1*Omega_L * (C_T - (1 + rho_A)*C)                     : mmolar/second
-C_ER = (C_T - C) / rho_A                                        : mmolar
-J_pump =  1*O_P * C**2/(C**2 + K_P**2)                          : mmolar/second
+J_pump =  O_P * C**2/(C**2 + K_P**2)                          : mmolar/second
 
 m_inf = I/(I + d_1) * C/(C + d_5)                            : 1
 h_inf = Q_2/(Q_2 + C)                                        : 1
@@ -131,16 +140,13 @@ I_bias : mmolar (constant)
 
 N_astro = 2 # Total number of astrocytes in the network
 astrocytes = NeuronGroup(N_astro, astro_eqs, method='rk4')
-astrocytes.I_bias = np.asarray([10, 0.],dtype=float)*umolar
-astrocytes.rho_A = 0.18
-
-astro_mon = StateMonitor(astrocytes, variables=['C', 'I', 'J_ex', 'J_chan', 'J_leak', 'J_pump', 
-    'rho_A', 'rho',
-    'vol_coef', 'J_coupling', 'C_ER', 'J_delta', 'J_3K', 'J_5P'], record=True)
+astrocytes.I_bias = np.asarray([1, 0.],dtype=float)*umolar
+astro_mon = StateMonitor(astrocytes, variables=['C', 'J_chan', 'J_leak', 'J_pump', 'h',
+                                                'I', 'J_delta', 'J_ex', 'J_3K', 'J_5P', 'J_coupling'], record=True)
 
 # Diffusion between astrocytes
 astro_to_astro_eqs = '''
-coef = 0 : 1
+coef = 1 : 1
 delta_I = I_post - I_pre        : mmolar
 J_coupling_post = -coef*D*delta_I*(Lambda*(1-rho_A))  : mole/second (summed)
 '''
@@ -156,24 +162,21 @@ run(duration, report='text')
 
 #print("coef= ", syn_mon.coef)
 print("C= ", astro_mon.C[0])
-print("C_T= ", C_T)
-print("C_ER= C_ER = (C_T - C) / rho_A: ", astro_mon.C_ER[0])
 print("I= ", astro_mon.I[0])
 print("J_chan= ", astro_mon.J_chan[0])
 print("J_leak= ", astro_mon.J_leak[0])
 print("J_pump= ", astro_mon.J_pump[0])
-print("vol_coef= ", astro_mon.vol_coef[0])
-print("J_coupling= ", astro_mon.J_coupling[0])
 print("J_delta= ", astro_mon.J_delta[0])
+print("J_ex= ", astro_mon.J_ex[0])
 print("J_3K= ", astro_mon.J_3K[0])
 print("J_5P= ", astro_mon.J_5P[0])
-print("rho_A= ", astro_mon.rho_A[0])
-print("rho= ", astro_mon.rho[0])
+print("J_coupling= ", astro_mon.J_coupling[0])
+print("h= ", astro_mon.h[0])
 
 ################################################################################
 # Analysis and plotting
 ################################################################################
-fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(6.26894, 6.26894 * 0.66),
+fig, axes = plt.subplots(nrows=9, ncols=1, figsize=(6.26894, 8 * 6.26894 * 0.66),
                        gridspec_kw={'left': 0.1, 'bottom': 0.12})
 #ax.plot(astro_mon.t/second,astro_mon.C[0]/umolar,'b-')
 #ax.plot(astro_mon.t/second,astro_mon.C[1]/umolar,'r-')
@@ -181,15 +184,40 @@ ax = axes[0]
 ax.plot(astro_mon.t/second,astro_mon.C[0]/umolar,'b-')
 ax.plot(astro_mon.t/second,astro_mon.C[1]/umolar,'r-')
 ax.set_ylabel("CaCYT")
+ax = axes[1]
+ax.plot(astro_mon.t/second,astro_mon.J_chan[0]/umolar,'b-')
+ax.plot(astro_mon.t/second,astro_mon.J_chan[1]/umolar,'r-')
+ax.set_ylabel("J_chan")
 ax = axes[2]
+ax.plot(astro_mon.t/second,astro_mon.J_leak[0]/umolar,'b-')
+ax.plot(astro_mon.t/second,astro_mon.J_leak[1]/umolar,'r-')
+ax.set_ylabel("J_leak")
+ax = axes[3]
+ax.plot(astro_mon.t/second,astro_mon.J_pump[0]/umolar,'b-')
+ax.plot(astro_mon.t/second,astro_mon.J_pump[1]/umolar,'r-')
+ax.set_ylabel("J_pump")
+ax = axes[4]
 ax.plot(astro_mon.t/second,astro_mon.I[0]/umolar,'b-')
 ax.plot(astro_mon.t/second,astro_mon.I[1]/umolar,'r-')
 ax.set_ylabel("I")
-ax = axes[3]
+ax = axes[5]
 ax.plot(astro_mon.t/second,astro_mon.J_ex[0]/umolar,'b-')
 ax.plot(astro_mon.t/second,astro_mon.J_ex[1]/umolar,'r-')
 ax.set_ylabel("J_ex")
+ax = axes[6]
+ax.plot(astro_mon.t/second,astro_mon.J_delta[0]/umolar,'b-')
+ax.plot(astro_mon.t/second,astro_mon.J_delta[1]/umolar,'r-')
+ax.set_ylabel("J_delta")
+ax = axes[7]
+ax.plot(astro_mon.t/second,astro_mon.J_3K[0]/umolar,'b-')
+ax.plot(astro_mon.t/second,astro_mon.J_3K[1]/umolar,'r-')
+ax.set_ylabel("J_3K")
+ax = axes[8]
+ax.plot(astro_mon.t/second,astro_mon.J_5P[0]/umolar,'b-')
+ax.plot(astro_mon.t/second,astro_mon.J_5P[1]/umolar,'r-')
+ax.set_ylabel("J_5P")
+
 plt.tight_layout()
 
 #plt.show()
-plt.savefig("plot_MDP.pdf")
+plt.savefig("plot_TT.pdf")
