@@ -1,0 +1,8 @@
+Two directories defined depending on how the simple branching configuration is set up
+- spatialNeuron_configuration
+	--> Defind branching configuration using SpationNeuron() and morphology with Synapses() function and .connect to connect compartments
+		( described in https://brian2.readthedocs.io/en/stable/user/multicompartmental.html )
+	--> UNCLEAR how whether synaptic connections are defined appropriately
+- neuronGroup_configuration
+	--> Defined branching configuration using NeuronGroup() with Snapses() function and .connect() to connect compartments
+	--> Morphological parameters still not incorporated
