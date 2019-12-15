@@ -6,3 +6,19 @@ Two directories defined depending on how the simple branching configuration is s
 - neuronGroup_configuration
 	--> Defined branching configuration using NeuronGroup() with Snapses() function and .connect() to connect compartments
 	--> Morphological parameters still not incorporated
+
+
+#------- Morphology Code ----------#
+Downloading Allen institute sdk swc module
+-- You need PIP (neither Anaconda distribution or conda-forge have access to allen institute code)
+ 	- with anaconda this is "conda install pip"
+-- "pip install allensdk"
+
+-- Documentation for Allen institute Software Development Kit (SDK)
+	- Install:  https://allensdk.readthedocs.io/en/latest/install.html
+	- SWC module:  https://allensdk.readthedocs.io/en/latest/cell_types.html
+		- contains python module to see how it works. 
+
+EXAMPLE FILE: ex_swc.py
+#----------------------------------#
+	
