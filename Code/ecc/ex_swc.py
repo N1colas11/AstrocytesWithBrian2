@@ -33,10 +33,10 @@ if True:
     fig, axes = plt.subplots(1, 2, sharey=True, sharex=True)
     # Make a line drawing of x-y and y-z views
     for i,n in enumerate(morphology.compartment_list):
-        pprint.pprint(morphology.compartment_list[i])
         morphology.compartment_list[i]['rho'] = .5
         #print("compartment ", i," radius ", morphology.compartment_list[i]['radius'])
         print("compartment ", i," rho ", morphology.compartment_list[i]['rho'])
+        pprint.pprint(morphology.compartment_list[i])
         for c in morphology.children_of(n):
             axes[0].plot([n['x'], c['x']], [n['y'], c['y']], color='black')
             axes[1].plot([n['z'], c['z']], [n['y'], c['y']], color='black')
