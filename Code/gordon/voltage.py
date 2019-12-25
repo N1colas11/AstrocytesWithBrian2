@@ -2,32 +2,47 @@ from brian2 import *
 #codegen.target = 'cython'
 
 ### General parameters
-duration = 0.3*ms       # Total simulation time
-sim_dt = 0.1*ms            # Integrator/sampling step
+# if dt=1*ms, I get Nan
+# VVT is very non-smooth as a function of time
+duration = 30*ms          # Total simulation time
+sim_dt = .1*ms            # Integrator/sampling step
 
 # Model definition
 defaultclock.dt = sim_dt     # Set the integration time
 
-Ce  = .5 * mole / meter**3
-P_Ca = 1. * cm / second  # Permeability
-V_T = 25 * mvolt
-Crest  = 1.e-4 * mole / meter**3
-Vrest  = 20 * mvolt
-F = 96485.3329 * second * amp / mole
+# Extracellular calcium (for Goldman formula). 
+# What is the location? Where was Goldman's formula applied? Across the extracelluar membrane (radius R), 
+# or between the cytosol and the ER? 
+Ce  = 1.e-4 * umole / cm**3
+print("Ce= ", Ce)
+Ce  = 1800 * uM   # too large? 
+print("Ce= ", Ce)
+# From Oschmann Master thesis, page 53. 
+Crest = 0.073 * uM  # M is molar, u is micro
+print("Crest= ", Crest)
+
+P_Ca = 4.46e-13 * cm / second   # From "Calcium Permeability in Large Unilamellar Vesicles Prepared from Bovine Lens Cortical Lipids"
+V_T = 26 * mvolt
+Vrest  = -80 * mvolt
+F = 96485.3329 * amp * second / mole  #  is Coulomb
+k_B = 1.38064852e-23 * meter**2 * kilogram / second**2 / kelvin
+N_A = 6.02214076e23 / mole
+e = 1.602176634e-19 * amp * second
 Cm = 1 * uF / meter**2 #: 1  #Capacitance per meter**2
-D_C = 1 * meter**2 / second
+D_C = 5.3e-6 * cm**2 / second # from "Free diffusion coefficient of ionic calcium in cytoplasm", Donahue et al (1987)
+Rgas = 8.31 * joule / kelvin / mole
 
 astro_eqs = '''
-g                  : 1
+s = R + r          : meter
+r                  : meter
+dR2 = R**2 - r**2  : meter**2
 #nb_connections    : 1
 DR2                : meter**2
 L                  : meter
 R                  : meter  # Outer radius
-s                  : meter
 A                  : 1/volt
 B                  : 1
 CC                 : volt
-dR2                : meter**2
 coupling           : mole / second / meter**3
 coupling_electro   : mole / second / meter**3
 
@@ -39,22 +54,23 @@ electro_diffusion = -P_Ca * V / (R * V_T) * (Ce*exp(-2*V/V_T) - C) / (exp(-2*V/V
 #electro_diffusion = -P_Ca * V / (R * V_T) * (Ce*exp(-2*V/V_T) - C) : mole / second / meter**3
 
 C0 = Crest + (V0 - Vrest) * Cm / (F * s)   : mole / meter**3
-# V0 is the problem
+
+# Figure out which branc to use: +sqrt or -sqrt? 
 V0 = (B + sqrt(B**2 - 4.*A*CC)) / A        : volt   # at compartment edges
 
 # Calcium diffusion
 dC/dt = coupling + coupling_electro + electro_diffusion        : mole / meter**3
 '''
 
-N_astro = 3 # Total number of astrocytes in the network
+N_astro = 2 # Total number of astrocytes in the network
 astrocytes = NeuronGroup(N_astro, astro_eqs)
-astrocytes.g = [10,20,40]
-astrocytes.L = 1 *  umeter
-astrocytes.s = 1 *  umeter
-astrocytes.dR2 = 1 *  umeter**2
-astrocytes.R = 2 * umeter
-astrocytes.A = 1 / volt
 
+# Initital Conditions
+astrocytes.L = 8 *  umeter  # length of a compartment
+astrocytes.R = 3 * umeter
+astrocytes.r = 2 * umeter
+astrocytes.A = 1 / volt
+astrocytes.C = 1.1e-4 * mole / meter**3
 
 astro_mon = StateMonitor(astrocytes, variables=['C','coupling', 'coupling_electro', 'electro_diffusion', 'A', 'V0'], record=True)
 b_mon = StateMonitor(astrocytes, variables=['VVT','V'], record=True)
@@ -65,10 +81,7 @@ A_pre = dR2_post / (L_post * s_post * V_T) : 1/volt (summed)
 B_pre = 0.5 * (dR2_post / (L_post * s_post)) * (Vrest + V_post)/V_T : 1 (summed)
 CC_pre = (dR2_post/L_post * s_post) * ((Crest-C_post) * (F * s_post/Cm) + Vrest * (V_post/V_T-1.)) : volt (summed)
 
-# The next two terms appear to be equal once summed. Strange.
-
 coupling_pre = (4*D_C / L_post**2) * (C0_post - C_post) : mole / second / meter**3 (summed)
-
 coupling_electro_pre = (4*D_C/L_post**2/V_T) * (C0_post + C_post) * (V0_post - V_post) : mole/second/meter**3 (summed)
 
 '''
