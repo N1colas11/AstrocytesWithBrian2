@@ -161,6 +161,7 @@ run(duration, report='text')
 #print(astro_diff_mon.Jdiff_Ca)
 print("CaCYT, ", astro_Ca_mon.CaCYT)
 print("IP3, ", astro_IP3_mon.IP3)
+
 ################################################################################
 # Analysis and plotting
 ################################################################################
