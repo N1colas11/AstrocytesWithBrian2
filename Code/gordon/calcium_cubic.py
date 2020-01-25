@@ -70,7 +70,7 @@ C0 = (-B1 + sqrt(B1**2 + 4*C1*A1)) / (2.*A1) : mole / meter**3
 V0 = Vrest + (C0 - Crest) * (F * s) / Cm   : volt
 
 # Calcium diffusion
-dC/dt = coupling_C + 0.*coupling_electro + 0.*electro_diffusion        : mole / meter**3
+dC/dt = coupling_C + 0.*coupling_electro + 1.*electro_diffusion        : mole / meter**3
 '''
 
 N_astro = 2 # Total number of astrocytes in the network
