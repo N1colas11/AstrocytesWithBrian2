@@ -2,6 +2,7 @@
 #  SIMPLIFY THE CODE TO ONLY KEEP THE Calcium and look at diffusion term only. 
 
 from brian2 import *
+import utils as u
 #codegen.target = 'cython'
 
 ### General parameters
@@ -72,18 +73,24 @@ A000_nb_connections : 1  # number of synaptic connections
 dC/dt = coupling_C + 1.*coupling_electro + 0.*electro_diffusion        : mole / meter**3
 '''
 
-N_astro = 3 # Total number of astrocytes1 in the network
+N_astro = 3 # Total number of astrocytes1 in the network (each compartment broken into two
+N_astro = 2*N_astro # Total number of astrocytes1 in the network (each compartment broken into two
 astrocytes1 = NeuronGroup(N_astro, astro_eqs, method='euler', order=0, name='ng1')
 
 # Initital Conditions
 astrocytes1.L = 8 *  umeter  # length of a compartment
 astrocytes1.R = 3 * umeter
 astrocytes1.r = 2 * umeter
-astrocytes1.C = [1.1e-4, 1.5e-4, 1.6e-4] * mole / meter**3
-astrocytes1.C = [1.1e-4, 1.1e-4, 1.6e-4] * mole / meter**3
+astrocytes1.C = [1.1e-4, 1.5e-4, 1.6e-4]*2 * mole / meter**3
+astrocytes1.C = [1.1e-4, 1.1e-4, 1.6e-4]*2 * mole / meter**3
 
 astro_mon = StateMonitor(astrocytes1, variables=['C','coupling_C', 'coupling_electro', 'electro_diffusion', 'A000_nb_connections', 'A1', 'B1', 'C1', 'CC0', 'V0'], record=True)
 b_mon = StateMonitor(astrocytes1, variables=['VVT','V', 'CC0', 'dR2', 's', 'L'], record=True)
+
+'''
+One issue is Boundary Conditions. I have not done anything to implement those. 
+Also, each synapse has its own value of V0. 
+'''
 
 # Diffusion between astrocytes1
 synapse1_eqs = '''
@@ -94,6 +101,7 @@ synapse1_eqs = '''
 # A1 C0^2 + B1 C - C1 = 0
 # C0 = (-B1 \pm \sqrt{B1^2 + 4*C1*A1) / (2*A1)
 
+# A1 stable: value does not change from iteration to iteration
 A1_pre = (0.5 * F * s_post)/(Cm * V_T) * (dR2_post / L_post) : meter**4 / mole (summed)
 B1_pre = (1. - (s_post * F * C_post)/(2. * Cm * V_T)) : meter (summed)
 C1_pre = dR2_post * C_post / L_post : mole / meter**2 (summed)
@@ -123,64 +131,56 @@ coupling_electro_pre = (4*D_C/L_post**2/V_T) * ( (CC0_post + C_post) * (V0_post 
 #coupling_electro_pre = (4*D_C/L_post**2/V_T) * (C0_post + C_post) * (V0_post - V_post) : mole/second/meter**3 (summed)
 '''
 
-
-'''
-Neuron1 <-- Synapse1 --> Neuron2 <-- Synapse2 --> Neuron1 
-
-Mail to Maurizio, 2020-01-25,3.37pm
-I am thinking that I need connections similar to:
-
-Neuron1 <-- Synapse1 --> Neuron2 <-- Synapse2 --> Neuron1
-
-connect()  (all to all) feels complicated. Although all to all might work with 3 neurons, it will not work with more than 3.
-But this structure is required to control the computation of intermediate variables.
-
-Neuron1 would advance C, Ce and IP3, also V, which only depends on C ( and constants Crest and Vrest)
-
-Neuron2 would compute V0 and C0 (which have to be callable from Neuron1). Therefore, Neuron1[i] must be the same
-compartment as Neuron2[i] (I do not know whether the notation is correct). Finally, Neuron2 would advance C, Ce, IP3
-
-Synapse1 would compute A, B, C, necessary to solve the quadratic equation allowing the computation of C0 and V0 in Neuron2.
-A C0**2 + B * C0 + C = 0   ,   solve for C0 (quadratic equation in C0)
-
-Synapse2 would compute the diffusion and electro-coupling terms, which depend on  V0 and C0 (computed in Neuron2). This term also depends on C and V, which are available from Neuron1. So Synapse 2 must access variables in Neuron1 and Neuron2). I wonder what that does to efficiency.
-
-What do you think?
-
-Consider doing:  (use an existing structure to set the connection)
-A = randint(2,size=(4,4))
-rows, cols = nonzero(A)
-S.connect(rows, cols)  # or cols, rows...
-
--------
-
-An alternative approach would be to have a single NeuronGroup and a single SynapseGroup. In that case, each group is divided into two parts .We create a schedule executed in the following order:
-
-Synapse1 (part1), Neuron1 (part1), Synapse1 (part2), Neuron2 (part2).
-
-Would it be possible to add a switch controlled by a global variable. If the switch is True, part 1 is executed. If switch is False, part 2 is executed. I must be able to control the boolean value of the switch. There are two switches actually. One for the SynapseGroup, and one for the NeuronGroup.
-
-What do you think? Is it possible?
+# TEMPORARY
+synapse2_eqs = '''
+	dQ/dt = 1*Hz : 1
+    dCC/dt = ccoupling_C + 1.*ccoupling_electro + 0.*eelectro_diffusion        : mole / meter**3
+    ccoupling_electro   : mole / second / meter**3
+    ccoupling_C   : mole / second / meter**3
+	eelectro_diffusion : mole / second /meter**3
 '''
 
 synapses1 = Synapses(astrocytes1, astrocytes1, model=synapse1_eqs, method='euler', order=2, name='sg1')
-synapses1.connect()
+synapses2 = Synapses(astrocytes1, astrocytes1, model=synapse2_eqs, method='euler', order=5, name='sg2')
+
+syn2_mon = StateMonitor(synapses2, variables=['CC', 'Q'], record=True)
+
+# Connections count from 0
+
+# Single fork
+for i in range(N_astro):
+    synapses1.connect(i=i,j=i)
+pairs = [(3,1),(3,2),(1,2)]
+for pair in pairs:
+	synapses1.connect(i=pair[0], j=pair[1])
+	synapses1.connect(i=pair[1], j=pair[0])
+
+synapses2.connect(i=0, j=3)
+synapses2.connect(i=3, j=0)
+synapses2.connect(i=1, j=4)
+synapses2.connect(i=4, j=1)
+synapses2.connect(i=2, j=5)
+synapses2.connect(i=5, j=2)
+
+
 matrix = np.zeros([len(astrocytes1), len(astrocytes1)], dtype=bool)
 matrix[synapses1.i[:], synapses1.j[:]] = True
-print("Connection matrix:")
+print("Connection matrix 1:")
 print(matrix)
 
-#syn_mon = StateMonitor(synapses1, variables=['A000_nb_connections'], record=True)
+# Matrix2 is a permutation matrix. Is this significant?
+matrix2 = np.zeros([len(astrocytes1), len(astrocytes1)], dtype=bool)
+matrix2[synapses2.i[:], synapses2.j[:]] = True
+print("Connection matrix 2:")
+print(matrix2)
 
-#for o in net.objects: 
-	#print("object: ", o)
-
-#for s in net.get_states():
-    #print("state: ", s)
-
-#synapses1.variables['A000_nb_connections_pre'].name = 'A000_nb_connections_pre'
-#print("synapse1.variables: ", synapses1.variables['A000_nb_connections_pre'].name)
-#quit()
+# Initial Conditions (call after connect())
+# Temporary. Should be computed in the synapse
+synapses2.CC                 = 1.1e-4 * mole / meter**3
+synapses2.ccoupling_electro  = 1.*mole / second / meter**3
+synapses2.ccoupling_C        = 1.*mole / second / meter**3
+synapses2.eelectro_diffusion = 1.* mole / second /meter**3
+synapses2.Q = 1.
 
 for k,v in synapses1.variables.items():
 	#print("k: ", k)
@@ -190,46 +190,17 @@ for k,v in synapses1.variables.items():
 	pass
 
 
-print("..dir(synapses1)= ", dir(synapses1))
-print("..dir(synapses1.subexpression_updater)= ", dir(synapses1.subexpression_updater))
-print("..dir(synapses1.summed_updaters)= ", dir(synapses1.summed_updaters))
-print()
+#print("..dir(synapses1)= ", dir(synapses1))
+#print("..dir(synapses1.subexpression_updater)= ", dir(synapses1.subexpression_updater))
+#print("..dir(synapses1.summed_updaters)= ", dir(synapses1.summed_updaters))
+#print()
 
 # Run Simulation
 print(scheduling_summary())
 run(duration, report='text')
 
-print("C= ", astro_mon.C)
-print("V= ", b_mon.V)  
-#print("CC0= ", b_mon.CC0)
-#print("coupling_C= ", astro_mon.coupling_C)
-#print("coupling_electro= ", astro_mon.coupling_electro)
-#print("electro_diffusion= ", astro_mon.electro_diffusion)
-#print("VVT=-2*V/V_T ", b_mon.VVT)
-#print("V0= ", astro_mon.V0)
-#print("V_T= ", V_T)
-print("A000_nb_connections: ", astro_mon.A000_nb_connections)
-print("A1= ", astro_mon.A1)
-print("B1= ", astro_mon.B1)
-print("C1= ", astro_mon.C1)
-print("CC0= ", astro_mon.CC0)
-print("V0= ", astro_mon.V0)
-#print("s= ", b_mon.s)
-print("dR2= ", b_mon.dR2)
-print("L= ", b_mon.L)
+u.printData(astro_mon, b_mon, syn2_mon)
+quit()
+u.plots(astro_mon)
+#----------------------------------------------------------------------
 
-
-
-################################################################################
-# Analysis and plotting
-################################################################################
-fig, (ax1,ax2) = plt.subplots(nrows=1, ncols=2, figsize=(6.26894 * 2, 6.26894 * 0.66),
-                       gridspec_kw={'left': 0.1, 'bottom': 0.12})
-
-ax1.plot(astro_mon.t/second,astro_mon.C[0]/umolar,label='C1')
-ax1.plot(astro_mon.t/second,astro_mon.C[1]/umolar,label='C2')
-ax1.legend()
-ax1.set(xlabel='time (ms)',ylabel='Ca concentration (umolar)')
-
-plt.savefig("plot.pdf")
-#plt.show()
