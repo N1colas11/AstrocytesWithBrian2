@@ -97,6 +97,8 @@ synapse1_eqs = '''
 # Assuming the above is correct, let us figure out units. 
 # using C_pre:  C * F * s / Cm = V  ==> F / Cm = V / s / C = (V / s) * m^3 / mole
 
+dP/dt = 1*Hz : 1
+
 # Solution to quadratic C0 equation (calcium concentration)
 # A1 C0^2 + B1 C - C1 = 0
 # C0 = (-B1 \pm \sqrt{B1^2 + 4*C1*A1) / (2*A1)
@@ -134,16 +136,21 @@ coupling_electro_pre = (4*D_C/L_post**2/V_T) * ( (CC0_post + C_post) * (V0_post 
 # TEMPORARY
 synapse2_eqs = '''
 	dQ/dt = 1*Hz : 1
-    dCC/dt = ccoupling_C + 1.*ccoupling_electro + 0.*eelectro_diffusion        : mole / meter**3
-    ccoupling_electro   : mole / second / meter**3
-    ccoupling_C   : mole / second / meter**3
-	eelectro_diffusion : mole / second /meter**3
+    dCC/dt = 0*ccoupling_C + 0.*cccoupling_electro + 1.*eelectro_diffusion        : mole / meter**3
+    #ccoupling_C   : mole / second / meter**3
+	#eelectro_diffusion : mole / second /meter**3
+
+	ddd = C_post : mole / meter**3
+
+    #ccoupling_electro   : mole / second / meter**3
+    #ccoupling_electro = (4*D_C/L_post**2/V_T) * (CC0_post + C_post) * (V0_post - V_post)  : mole / second / meter**3
+    cccoupling_electro = (4*D_C/L_post**2/V_T) * (CC0_post ) : mole / second / meter**3   # WRONG VALUE
+    #ccoupling_electro = (4*D_C/L_post**2/V_T) * ( (CC0_post + C_post) * (V0_post - V_post)  -  
+        #(C_pre + C_pre) * (V0_pre - V_pre) )  : mole/second/meter**3 
 '''
 
 synapses1 = Synapses(astrocytes1, astrocytes1, model=synapse1_eqs, method='euler', order=2, name='sg1')
 synapses2 = Synapses(astrocytes1, astrocytes1, model=synapse2_eqs, method='euler', order=5, name='sg2')
-
-syn2_mon = StateMonitor(synapses2, variables=['CC', 'Q'], record=True)
 
 # Connections count from 0
 
@@ -162,44 +169,30 @@ synapses2.connect(i=4, j=1)
 synapses2.connect(i=2, j=5)
 synapses2.connect(i=5, j=2)
 
+# Must call StateMonitor AFTER synaptic connections are established
+syn1_mon = StateMonitor(synapses1, variables=['P'], record=True, name='syn1_mon')
+syn2_mon = StateMonitor(synapses2, variables=['CC', 'Q'], record=True, name='syn2_mon')
 
-matrix = np.zeros([len(astrocytes1), len(astrocytes1)], dtype=bool)
-matrix[synapses1.i[:], synapses1.j[:]] = True
-print("Connection matrix 1:")
-print(matrix)
+u.connectionMatrices(astrocytes1, synapses1, synapses2)
 
-# Matrix2 is a permutation matrix. Is this significant?
-matrix2 = np.zeros([len(astrocytes1), len(astrocytes1)], dtype=bool)
-matrix2[synapses2.i[:], synapses2.j[:]] = True
-print("Connection matrix 2:")
-print(matrix2)
-
+#-------------------------------------------
 # Initial Conditions (call after connect())
 # Temporary. Should be computed in the synapse
+synapses1.P                  = 1.1e-2 
 synapses2.CC                 = 1.1e-4 * mole / meter**3
-synapses2.ccoupling_electro  = 1.*mole / second / meter**3
+synapses2.cccoupling_electro  = 1.*mole / second / meter**3
 synapses2.ccoupling_C        = 1.*mole / second / meter**3
 synapses2.eelectro_diffusion = 1.* mole / second /meter**3
 synapses2.Q = 1.
 
-for k,v in synapses1.variables.items():
-	#print("k: ", k)
-	#print("v: ", v)
-	#print("..dir(k)= ", dir(k))
-	#print("..dir(v)= ", dir(k))
-	pass
-
-
-#print("..dir(synapses1)= ", dir(synapses1))
-#print("..dir(synapses1.subexpression_updater)= ", dir(synapses1.subexpression_updater))
-#print("..dir(synapses1.summed_updaters)= ", dir(synapses1.summed_updaters))
-#print()
+#u.lowLevelInfo(synapses1)
 
 # Run Simulation
 print(scheduling_summary())
-run(duration, report='text')
+run(duration)
+#run(duration, report='text')
 
-u.printData(astro_mon, b_mon, syn2_mon)
+u.printData(astro_mon, b_mon, syn1_mon, syn2_mon)
 quit()
 u.plots(astro_mon)
 #----------------------------------------------------------------------

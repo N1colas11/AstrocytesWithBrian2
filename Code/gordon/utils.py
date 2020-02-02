@@ -1,5 +1,6 @@
+import numpy as np
 
-def printData(astro_mon, b_mon, syn2_mon):
+def printData(astro_mon, b_mon, syn1_mon, syn2_mon):
 	print("C= ", astro_mon.C)
 	print("V= ", b_mon.V)  
 	#print("CC0= ", b_mon.CC0)
@@ -20,6 +21,7 @@ def printData(astro_mon, b_mon, syn2_mon):
 	print("L= ", b_mon.L)
 	print("syn2::CC= ", syn2_mon.CC)
 	print("syn2::Q= ", syn2_mon.Q)
+	print("syn1::P= ", syn1_mon.P)
 
 
 #----------------------------------------------------------------------
@@ -37,4 +39,29 @@ def plots(astro_mon):
 	
 	plt.savefig("plot.pdf")
 	#plt.show()
+#----------------------------------------------------------------------
+def connectionMatrices(astrocytes1, synapses1, synapses2):
+	matrix = np.zeros([len(astrocytes1), len(astrocytes1)], dtype=bool)
+	matrix[synapses1.i[:], synapses1.j[:]] = True
+	print("Connection matrix 1:")
+	print(matrix)
 
+	# Matrix2 is a permutation matrix. Is this significant?
+	matrix2 = np.zeros([len(astrocytes1), len(astrocytes1)], dtype=bool)
+	matrix2[synapses2.i[:], synapses2.j[:]] = True
+	print("Connection matrix 2:")
+	print(matrix2)
+#-------------------------------------------
+def lowLevelInfo(synapses1):
+	for k,v in synapses1.variables.items():
+		#print("k: ", k)
+		#print("v: ", v)
+		#print("..dir(k)= ", dir(k))
+		#print("..dir(v)= ", dir(k))
+		pass
+
+	#print("..dir(synapses1)= ", dir(synapses1))
+	#print("..dir(synapses1.subexpression_updater)= ", dir(synapses1.subexpression_updater))
+	#print("..dir(synapses1.summed_updaters)= ", dir(synapses1.summed_updaters))
+	#print()
+#----------------------------------------------------------------------
