@@ -13,8 +13,8 @@ from brian2 import *
 # Initial conditions should be self-consistent in some way. 
 # What is V0, C0, etc at t=0?
 
-duration = 500*ms          # Total simulation time
-sim_dt = 10*ms            # Integrator/sampling step
+duration = 0.3*ms          # Total simulation time
+sim_dt = 0.1*ms            # Integrator/sampling step
 
 # Model definition
 defaultclock.dt = sim_dt     # Set the integration time
@@ -48,87 +48,173 @@ dR2 = R**2 - r**2  : meter**2
 DR2                : meter**2
 L                  : meter
 R                  : meter  # Outer radius
-#A                  : 1/volt
-#B                  : 1
-#CC                 : volt
-A1                 : meter**4 / mole
-B1                 : meter
-C1                 : mole / meter**2
 coupling_C         : mole / second / meter**3
+
+# has large impact on diffusion. Creates instability
 coupling_electro   : mole / second / meter**3
 
 V = Vrest + (F*s/Cm) * (C-Crest) : volt
 VVT = -2.*V/V_T : 1  # value of 0, which leads to a zero denominator
 
+# Has minimal impact on Calcium
 electro_diffusion = -P_Ca * V / (R * V_T) * (Ce*exp(-2*V/V_T) - C) / (exp(-2*V/V_T) - 1) : mole / second / meter**3
 
-# Figure out which branch to use: +sqrt or -sqrt? 
-# or -sqrt... But C0 > 0 (is C1*A1 always greater than 0?)
-C0 = (-B1 + sqrt(B1**2 + 4*C1*A1)) / (2.*A1) : mole / meter**3 
-#C0 = B1 / A1 : mole / meter**3
+A1 : meter**4 / mole 
+B1 : meter 
+C1 : mole / meter**2 
 
-V0 = Vrest + (C0 - Crest) * (F * s) / Cm   : volt
+CC0 : mole / meter**3
+V0 : volt
+A000_nb_connections : 1  # number of synaptic connections
 
 # Calcium diffusion
-dC/dt = coupling_C + 0.*coupling_electro + 1.*electro_diffusion        : mole / meter**3
+# C: [[ 1.10000000e-07 -3.80029781e+07             nan
+dC/dt = coupling_C + 1.*coupling_electro + 0.*electro_diffusion        : mole / meter**3
 '''
 
-N_astro = 2 # Total number of astrocytes in the network
-astrocytes = NeuronGroup(N_astro, astro_eqs, method='euler')
+N_astro = 3 # Total number of astrocytes1 in the network
+astrocytes1 = NeuronGroup(N_astro, astro_eqs, method='euler', order=0, name='ng1')
 
 # Initital Conditions
-astrocytes.L = 8 *  umeter  # length of a compartment
-astrocytes.R = 3 * umeter
-astrocytes.r = 2 * umeter
-astrocytes.C = [1.1e-4, 1.5e-4] * mole / meter**3
+astrocytes1.L = 8 *  umeter  # length of a compartment
+astrocytes1.R = 3 * umeter
+astrocytes1.r = 2 * umeter
+astrocytes1.C = [1.1e-4, 1.5e-4, 1.6e-4] * mole / meter**3
+astrocytes1.C = [1.1e-4, 1.1e-4, 1.6e-4] * mole / meter**3
 
-astro_mon = StateMonitor(astrocytes, variables=['C','coupling_C', 'coupling_electro', 'electro_diffusion', 'A1', 'B1', 'C1', 'V0'], record=True)
-b_mon = StateMonitor(astrocytes, variables=['VVT','V', 'C0', 'dR2', 's', 'L'], record=True)
+astro_mon = StateMonitor(astrocytes1, variables=['C','coupling_C', 'coupling_electro', 'electro_diffusion', 'A000_nb_connections', 'A1', 'B1', 'C1', 'CC0', 'V0'], record=True)
+b_mon = StateMonitor(astrocytes1, variables=['VVT','V', 'CC0', 'dR2', 's', 'L'], record=True)
 
-# Diffusion between astrocytes
-astro_to_astro_eqs = '''
-# Solution to quadratic voltage equation
-#A_pre = dR2_post / (L_post * s_post * V_T) : 1/volt (summed)
-#B_pre = 0.5 * (dR2_post / (L_post * s_post)) * (Vrest + V_post)/V_T : 1 (summed)
-#CC_pre = (dR2_post/L_post * s_post) * ((Crest-C_post) * (F * s_post/Cm) + Vrest * (V_post/V_T-1.)) : volt (summed)
-
+# Diffusion between astrocytes1
+synapse1_eqs = '''
 # Assuming the above is correct, let us figure out units. 
 # using C_pre:  C * F * s / Cm = V  ==> F / Cm = V / s / C = (V / s) * m^3 / mole
 
 # Solution to quadratic C0 equation (calcium concentration)
 # A1 C0^2 + B1 C - C1 = 0
 # C0 = (-B1 \pm \sqrt{B1^2 + 4*C1*A1) / (2*A1)
+
 A1_pre = (0.5 * F * s_post)/(Cm * V_T) * (dR2_post / L_post) : meter**4 / mole (summed)
 B1_pre = (1. - (s_post * F * C_post)/(2. * Cm * V_T)) : meter (summed)
 C1_pre = dR2_post * C_post / L_post : mole / meter**2 (summed)
 
+# Only computed to trick Brian into computing C0_pre by summing the values for all synapses (which will 
+#   all bequal  since it depends on A1, B1, C1, for which the summation has already been executed. 
+# There must be an easier method without calculating C0 and V0 in the NeuronGroup
+A000_nb_connections_pre = 1 : 1 (summed)
+
+# Figure out which branch to use: +sqrt or -sqrt? 
+# or -sqrt... But C0 > 0 (is C1*A1 always greater than 0?)
+
+# worked. Nb_connections was nonzero, equal to 3, as expected. When I remove it, CC0 is three times higher.
+CC0_pre = ((-B1_pre + sqrt(B1_pre**2 + 4*C1_pre*A1_pre)) / (2.*A1_pre)) / A000_nb_connections_pre : mole / meter**3 (summed)
+V0_pre = (Vrest + (CC0_pre - Crest) * (F * s) / Cm) / A000_nb_connections_pre   : volt  (summed)
+
 # Investigate why this should be a minus sign
 coupling_C_post = (4*D_C / L_post**2) * (C_pre - C_post) : mole / second / meter**3 (summed)
 
-coupling_electro_pre = (4*D_C/L_post**2/V_T) * (C0_post + C_post) * (V0_post - V_post) : mole/second/meter**3 (summed)
-#coupling_pre = (4*D_C / L_post**2) * (C_pre - C_post) : mole / second / meter**3 (summed)
+# MAKE SURE CC0 and V0 are computed before upding the coupling parameters. 
+#coupling_electro_pre = (4*D_C/L_post**2/V_T) * (CC0_post + C_post) * (V0_post - V_post) : mole/second/meter**3 (summed) # diverge
+
+# Same divergence whether _pre or _post. WHY?   (CREATES INSTABILITY after 1-2 times steps)
+coupling_electro_pre = (4*D_C/L_post**2/V_T) * ( (CC0_post + C_post) * (V0_post - V_post)  - 
+   (C_pre + C_pre) * (V0_pre - V_pre) )  : mole/second/meter**3 (summed)
+
 #coupling_electro_pre = (4*D_C/L_post**2/V_T) * (C0_post + C_post) * (V0_post - V_post) : mole/second/meter**3 (summed)
 '''
 
-astro_to_astro = Synapses(astrocytes, astrocytes, model=astro_to_astro_eqs, method='euler')
-astro_to_astro.connect()
+
+'''
+Neuron1 <-- Synapse1 --> Neuron2 <-- Synapse2 --> Neuron1 
+
+Mail to Maurizio, 2020-01-25,3.37pm
+I am thinking that I need connections similar to:
+
+Neuron1 <-- Synapse1 --> Neuron2 <-- Synapse2 --> Neuron1
+
+connect()  (all to all) feels complicated. Although all to all might work with 3 neurons, it will not work with more than 3.
+But this structure is required to control the computation of intermediate variables.
+
+Neuron1 would advance C, Ce and IP3, also V, which only depends on C ( and constants Crest and Vrest)
+
+Neuron2 would compute V0 and C0 (which have to be callable from Neuron1). Therefore, Neuron1[i] must be the same
+compartment as Neuron2[i] (I do not know whether the notation is correct). Finally, Neuron2 would advance C, Ce, IP3
+
+Synapse1 would compute A, B, C, necessary to solve the quadratic equation allowing the computation of C0 and V0 in Neuron2.
+A C0**2 + B * C0 + C = 0   ,   solve for C0 (quadratic equation in C0)
+
+Synapse2 would compute the diffusion and electro-coupling terms, which depend on  V0 and C0 (computed in Neuron2). This term also depends on C and V, which are available from Neuron1. So Synapse 2 must access variables in Neuron1 and Neuron2). I wonder what that does to efficiency.
+
+What do you think?
+
+Consider doing:  (use an existing structure to set the connection)
+A = randint(2,size=(4,4))
+rows, cols = nonzero(A)
+S.connect(rows, cols)  # or cols, rows...
+
+-------
+
+An alternative approach would be to have a single NeuronGroup and a single SynapseGroup. In that case, each group is divided into two parts .We create a schedule executed in the following order:
+
+Synapse1 (part1), Neuron1 (part1), Synapse1 (part2), Neuron2 (part2).
+
+Would it be possible to add a switch controlled by a global variable. If the switch is True, part 1 is executed. If switch is False, part 2 is executed. I must be able to control the boolean value of the switch. There are two switches actually. One for the SynapseGroup, and one for the NeuronGroup.
+
+What do you think? Is it possible?
+'''
+
+synapses1 = Synapses(astrocytes1, astrocytes1, model=synapse1_eqs, method='euler', order=2, name='sg1')
+synapses1.connect()
+matrix = np.zeros([len(astrocytes1), len(astrocytes1)], dtype=bool)
+matrix[synapses1.i[:], synapses1.j[:]] = True
+print("Connection matrix:")
+print(matrix)
+
+#syn_mon = StateMonitor(synapses1, variables=['A000_nb_connections'], record=True)
+
+#for o in net.objects: 
+	#print("object: ", o)
+
+#for s in net.get_states():
+    #print("state: ", s)
+
+#synapses1.variables['A000_nb_connections_pre'].name = 'A000_nb_connections_pre'
+#print("synapse1.variables: ", synapses1.variables['A000_nb_connections_pre'].name)
+#quit()
+
+for k,v in synapses1.variables.items():
+	#print("k: ", k)
+	#print("v: ", v)
+	#print("..dir(k)= ", dir(k))
+	#print("..dir(v)= ", dir(k))
+	pass
+
+
+print("..dir(synapses1)= ", dir(synapses1))
+print("..dir(synapses1.subexpression_updater)= ", dir(synapses1.subexpression_updater))
+print("..dir(synapses1.summed_updaters)= ", dir(synapses1.summed_updaters))
+print()
 
 # Run Simulation
+print(scheduling_summary())
 run(duration, report='text')
 
 print("C= ", astro_mon.C)
-print("C0= ", b_mon.C0)
-print("coupling_C= ", astro_mon.coupling_C)
-print("coupling_electro= ", astro_mon.coupling_electro)
-print("electro_diffusion= ", astro_mon.electro_diffusion)
-print("VVT=-2*V/V_T ", b_mon.VVT)
-print("V0= ", astro_mon.V0)
-print("V= ", b_mon.V)
-print("V_T= ", V_T)
+print("V= ", b_mon.V)  
+#print("CC0= ", b_mon.CC0)
+#print("coupling_C= ", astro_mon.coupling_C)
+#print("coupling_electro= ", astro_mon.coupling_electro)
+#print("electro_diffusion= ", astro_mon.electro_diffusion)
+#print("VVT=-2*V/V_T ", b_mon.VVT)
+#print("V0= ", astro_mon.V0)
+#print("V_T= ", V_T)
+print("A000_nb_connections: ", astro_mon.A000_nb_connections)
 print("A1= ", astro_mon.A1)
 print("B1= ", astro_mon.B1)
 print("C1= ", astro_mon.C1)
-print("s= ", b_mon.s)
+print("CC0= ", astro_mon.CC0)
+print("V0= ", astro_mon.V0)
+#print("s= ", b_mon.s)
 print("dR2= ", b_mon.dR2)
 print("L= ", b_mon.L)
 
