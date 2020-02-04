@@ -54,11 +54,12 @@ coupling_C         : mole / second / meter**3
 # has large impact on diffusion. Creates instability
 coupling_electro   : mole / second / meter**3
 
-V = Vrest + (F*s/Cm) * (C-Crest) : volt
-VVT = -2.*V/V_T : 1  # value of 0, which leads to a zero denominator
+#V = Vrest + (F*s/Cm) * (C-Crest) : volt
+#VVT = -2.*V/V_T : 1  # value of 0, which leads to a zero denominator
 
 # Has minimal impact on Calcium
-electro_diffusion = -P_Ca * V / (R * V_T) * (Ce*exp(-2*V/V_T) - C) / (exp(-2*V/V_T) - 1) : mole / second / meter**3
+#electro_diffusion = -P_Ca * V / (R * V_T) * (Ce*exp(-2*V/V_T) - C) / (exp(-2*V/V_T) - 1) : mole / second / meter**3
+electro_diffusion :  mole / second / meter**3  # computed in synapse
 
 A1 : meter**4 / mole 
 B1 : meter 
@@ -67,10 +68,15 @@ C1 : mole / meter**2
 CC0 : mole / meter**3
 V0 : volt
 A000_nb_connections : 1  # number of synaptic connections
+nb_conn2 : 1
 
 # Calcium diffusion
 # C: [[ 1.10000000e-07 -3.80029781e+07             nan
-dC/dt = coupling_C + 1.*coupling_electro + 0.*electro_diffusion        : mole / meter**3
+#dC/dt = coupling_C + 1.*coupling_electro + 0.*electro_diffusion        : mole / meter**3
+
+cccoupling_electro : mole / second / meter**3 
+cccoupling_C : mole / second / meter**3 
+
 '''
 
 N_astro = 3 # Total number of astrocytes1 in the network (each compartment broken into two
@@ -81,11 +87,10 @@ astrocytes1 = NeuronGroup(N_astro, astro_eqs, method='euler', order=0, name='ng1
 astrocytes1.L = 8 *  umeter  # length of a compartment
 astrocytes1.R = 3 * umeter
 astrocytes1.r = 2 * umeter
-astrocytes1.C = [1.1e-4, 1.5e-4, 1.6e-4]*2 * mole / meter**3
-astrocytes1.C = [1.1e-4, 1.1e-4, 1.6e-4]*2 * mole / meter**3
+#astrocytes1.C = [1.1e-4, 1.5e-4, 1.6e-4]*2 * mole / meter**3
 
-astro_mon = StateMonitor(astrocytes1, variables=['C','coupling_C', 'coupling_electro', 'electro_diffusion', 'A000_nb_connections', 'A1', 'B1', 'C1', 'CC0', 'V0'], record=True)
-b_mon = StateMonitor(astrocytes1, variables=['VVT','V', 'CC0', 'dR2', 's', 'L'], record=True)
+astro_mon = StateMonitor(astrocytes1, variables=['coupling_C', 'coupling_electro', 'electro_diffusion', 'A000_nb_connections', 'A1', 'B1', 'C1', 'CC0', 'V0', 'nb_conn2'], record=True)
+b_mon = StateMonitor(astrocytes1, variables=['CC0', 'dR2', 's', 'L'], record=True)
 
 '''
 One issue is Boundary Conditions. I have not done anything to implement those. 
@@ -127,8 +132,8 @@ coupling_C_post = (4*D_C / L_post**2) * (C_pre - C_post) : mole / second / meter
 #coupling_electro_pre = (4*D_C/L_post**2/V_T) * (CC0_post + C_post) * (V0_post - V_post) : mole/second/meter**3 (summed) # diverge
 
 # Same divergence whether _pre or _post. WHY?   (CREATES INSTABILITY after 1-2 times steps)
-coupling_electro_pre = (4*D_C/L_post**2/V_T) * ( (CC0_post + C_post) * (V0_post - V_post)  - 
-   (C_pre + C_pre) * (V0_pre - V_pre) )  : mole/second/meter**3 (summed)
+#coupling_electro_pre = (4*D_C/L_post**2/V_T) * ( (CC0_post + C_post) * (V0_post - V_post)  - 
+   #(C_pre + C_pre) * (V0_pre - V_pre) )  : mole/second/meter**3 (summed)
 
 #coupling_electro_pre = (4*D_C/L_post**2/V_T) * (C0_post + C_post) * (V0_post - V_post) : mole/second/meter**3 (summed)
 '''
@@ -136,7 +141,8 @@ coupling_electro_pre = (4*D_C/L_post**2/V_T) * ( (CC0_post + C_post) * (V0_post 
 # TEMPORARY
 synapse2_eqs = '''
 	dQ/dt = 1*Hz : 1
-    dCC/dt = 0*ccoupling_C + 0.*cccoupling_electro + 1.*eelectro_diffusion        : mole / meter**3
+    dCC/dt = 1*cccoupling_C_pre + 1.*cccoupling_electro_pre : mole / meter**3
+    #dCC/dt = 0*cccoupling_C + 0.*cccoupling_electro + 1.*eelectro_diffusion        : mole / meter**3
     #ccoupling_C   : mole / second / meter**3
 	#eelectro_diffusion : mole / second /meter**3
 
@@ -144,9 +150,12 @@ synapse2_eqs = '''
 
     #ccoupling_electro   : mole / second / meter**3
     #ccoupling_electro = (4*D_C/L_post**2/V_T) * (CC0_post + C_post) * (V0_post - V_post)  : mole / second / meter**3
-    cccoupling_electro = (4*D_C/L_post**2/V_T) * (CC0_post ) : mole / second / meter**3   # WRONG VALUE
-    #ccoupling_electro = (4*D_C/L_post**2/V_T) * ( (CC0_post + C_post) * (V0_post - V_post)  -  
-        #(C_pre + C_pre) * (V0_pre - V_pre) )  : mole/second/meter**3 
+    #cccoupling_electro_pre = (4*D_C/L_post**2/V_T) * (CC0_post ) : mole / second / meter**3 (summed)  # WRONG VALUE
+    
+    nb_conn2_pre = 1 : 1 (summed)
+    cccoupling_electro_pre = (4*D_C/L_post**2/V_T) * ( (CC0_post + C_post) * (V0_post - V_post)  -  
+        (C_pre + C_pre) * (V0_pre - V_pre) )  : mole/second/meter**3  (summed)
+
 '''
 
 synapses1 = Synapses(astrocytes1, astrocytes1, model=synapse1_eqs, method='euler', order=2, name='sg1')
@@ -180,10 +189,8 @@ u.connectionMatrices(astrocytes1, synapses1, synapses2)
 # Temporary. Should be computed in the synapse
 synapses1.P                  = 1.1e-2 
 synapses2.CC                 = 1.1e-4 * mole / meter**3
-synapses2.cccoupling_electro  = 1.*mole / second / meter**3
-synapses2.ccoupling_C        = 1.*mole / second / meter**3
-synapses2.eelectro_diffusion = 1.* mole / second /meter**3
 synapses2.Q = 1.
+synapses2.CC = 1.1e-4 * mole / meter**3
 
 #u.lowLevelInfo(synapses1)
 
@@ -194,6 +201,6 @@ run(duration)
 
 u.printData(astro_mon, b_mon, syn1_mon, syn2_mon)
 quit()
-u.plots(astro_mon)
+#u.plots(astro_mon)
 #----------------------------------------------------------------------
 

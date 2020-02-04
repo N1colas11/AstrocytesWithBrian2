@@ -1,8 +1,9 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 def printData(astro_mon, b_mon, syn1_mon, syn2_mon):
-	print("C= ", astro_mon.C)
-	print("V= ", b_mon.V)  
+	#print("C= ", astro_mon.C)
+	#print("V= ", b_mon.V)  
 	#print("CC0= ", b_mon.CC0)
 	#print("coupling_C= ", astro_mon.coupling_C)
 	#print("coupling_electro= ", astro_mon.coupling_electro)
@@ -11,6 +12,7 @@ def printData(astro_mon, b_mon, syn1_mon, syn2_mon):
 	#print("V0= ", astro_mon.V0)
 	#print("V_T= ", V_T)
 	print("A000_nb_connections: ", astro_mon.A000_nb_connections)
+	print("nb_conn2: ", astro_mon.nb_conn2)
 	print("A1= ", astro_mon.A1)
 	print("B1= ", astro_mon.B1)
 	print("C1= ", astro_mon.C1)
@@ -21,6 +23,7 @@ def printData(astro_mon, b_mon, syn1_mon, syn2_mon):
 	print("L= ", b_mon.L)
 	print("syn2::CC= ", syn2_mon.CC)
 	print("syn2::Q= ", syn2_mon.Q)
+	#print("syn2::b= ", syn2_mon.b)
 	print("syn1::P= ", syn1_mon.P)
 
 
