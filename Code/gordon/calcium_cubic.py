@@ -58,11 +58,14 @@ coupling_C         : mole/second/meter**3
 coupling_electro   : mole / second / meter**3
 #coupling_electro = 1  : 1 
 
-V = Vrest + (F*s/Cm) * (C-Crest) : volt
+# TotCC is the total calcium (computed in synapses2)
+TotCC : mole/meter**3
+
+V = Vrest + (F*s/Cm) * (TotCC-Crest) : volt
 VVT = -2.*V/V_T : 1  # value of 0, which leads to a zero denominator
 
 # Has minimal impact on Calcium
-electro_diffusion = -P_Ca * V / (R * V_T) * (Ce*exp(-2*V/V_T) - C) / (exp(-2*V/V_T) - 1) : mole / second / meter**3
+electro_diffusion = -P_Ca * V / (R * V_T) * (Ce*exp(-2*V/V_T) - TotCC) / (exp(-2*V/V_T) - 1) : mole / second / meter**3
 #electro_diffusion :  mole / second / meter**3  # computed in synapse
 #electro_diffusion = 1 : 1
 
@@ -73,16 +76,13 @@ C1 : mole / meter**2
 CC0 : mole / meter**3
 V0 : volt
 A000_nb_connections : 1  # number of synaptic connections
-nb_conn2 : 1
+nb_connections2 : 1  # number of synaptic connections in synapses2
 
 # Calcium diffusion
 # Each term will be divided into two and recombined in the second synapse group
 
 # Actual calcium level (will be the same in both compartments connected to Synapses2
 D   : mole / meter**3 
-
-# computed in Synapse2
-DCC : mole / meter**3 
 
 #dC/dt = coupling_C + 1.*coupling_electro + 0.*electro_diffusion        : mole / meter**3
 dC/dt = coupling_C : mole / meter**3   # temporary for debugging
@@ -101,7 +101,7 @@ astrocytes1.r = 2 * umeter
 astrocytes1.C = 1.1e-4  * mole / meter**3
 #astrocytes1.C = [1.1e-4, 1.5e-4, 1.6e-4]*2 * mole / meter**3
 
-astro_mon = StateMonitor(astrocytes1, variables=['coupling_C', 'coupling_electro', 'electro_diffusion', 'A000_nb_connections', 'A1', 'B1', 'C1', 'CC0', 'V0', 'nb_conn2'], record=True)
+astro_mon = StateMonitor(astrocytes1, variables=['TotCC', 'coupling_C', 'coupling_electro', 'electro_diffusion', 'nb_connections2', 'A000_nb_connections', 'A1', 'B1', 'C1', 'CC0', 'V0'], record=True)
 b_mon = StateMonitor(astrocytes1, variables=['CC0', 'dR2', 's', 'L'], record=True)
 
 '''
@@ -123,8 +123,8 @@ dP/dt = 1*Hz : 1
 
 # A1 stable: value does not change from iteration to iteration
 A1_pre = (0.5 * F * s_post)/(Cm * V_T) * (dR2_post / L_post) : meter**4 / mole (summed)
-B1_pre = (1. - (s_post * F * C_post)/(2. * Cm * V_T)) : meter (summed)
-C1_pre = dR2_post * C_post / L_post : mole / meter**2 (summed)
+B1_pre = (1. - (s_post * F * TotCC_post)/(2. * Cm * V_T)) : meter (summed)
+C1_pre = dR2_post * TotCC_post / L_post : mole / meter**2 (summed)
 
 # Only computed to trick Brian into computing C0_pre by summing the values for all synapses (which will 
 #   all bequal  since it depends on A1, B1, C1, for which the summation has already been executed. 
@@ -134,27 +134,30 @@ A000_nb_connections_pre = 1 : 1 (summed)
 # Figure out which branch to use: +sqrt or -sqrt? 
 # or -sqrt... But C0 > 0 (is C1*A1 always greater than 0?)
 
-# worked. Nb_connections was nonzero, equal to 3, as expected. When I remove it, CC0 is three times higher.
+# Notice I am dividing by the number of connections (3 if a single fork)
 CC0_pre = ((-B1_pre + sqrt(B1_pre**2 + 4*C1_pre*A1_pre)) / (2.*A1_pre)) / A000_nb_connections_pre : mole / meter**3 (summed)
 V0_pre = (Vrest + (CC0_pre - Crest) * (F * s) / Cm) / A000_nb_connections_pre   : volt  (summed)
 
 # Investigate why this should be a minus sign
-coupling_C_post = (4*D_C / L_post**2) * (C_pre - C_post) : mole/second/meter**3 (summed)
+coupling_C_post = (4*D_C / L_post**2) * (TotCC_pre - TotCC_post) : mole/second/meter**3 (summed)
 
 # MAKE SURE CC0 and V0 are computed before updating the coupling parameters. 
-coupling_electro_pre = (4*D_C/L_post**2/V_T) * (CC0_post + C_post) * (V0_post - V_post) : mole/second/meter**3 (summed) # diverge
+coupling_electro_pre = (4*D_C/L_post**2/V_T) * (CC0_post + TotCC_post) * (V0_post - V_post) : mole/second/meter**3 (summed) # diverge
 '''
 #----------------------------------------------------------------------
 
 # TEMPORARY
 synapse2_eqs = '''
-    # C is updated in each compartment of the astrocyte
-
-	DCC_syn = C_pre + C_post : mole / meter**3
+    # C is updated in each compartment of the astrocyte and combined here
+	TotCC_syn = C_pre + C_post : mole / meter**3
 
 	# update Calcium in compartments
-	DCC_pre  = DCC_syn       : mole / meter**3 (summed)
-	#DCC_post = DCC_syn       : mole / meter**3 (summed)
+	# This works because synapses are bidirectional i --> j and j --> i
+    nb_connections2_pre = 1 : 1 (summed)
+
+	# How many connection? 
+	TotCC_pre   = TotCC_syn       : mole / meter**3 (summed)
+	#TotCC_post  = TotCC_syn      : mole / meter**3 (summed)
 '''
 
 synapses1 = Synapses(astrocytes1, astrocytes1, model=synapse1_eqs, method='euler', order=2, name='sg1')
@@ -180,23 +183,19 @@ for pair in pairs:
 
 # Must call StateMonitor AFTER synaptic connections are established
 syn1_mon = StateMonitor(synapses1, variables=['P'], record=True, name='syn1_mon')
-syn2_mon = StateMonitor(synapses2, variables=['DCC'], record=True, name='syn2_mon')
+syn2_mon = StateMonitor(synapses2, variables=[], record=True, name='syn2_mon')
 
-u.connectionMatrices(astrocytes1, synapses1, synapses2)
+groups = [synapses1, synapses2]  #  must have i,j connections
+u.connectionMatrices(groups)
 
-print()
-for k,v in astrocytes1.variables.items():
-	print("astrocytes1: k,v: ", k,v)
-print()
-for k,v in synapses2.variables.items():
-	print("synapses2: k,v: ", k,v)
 
 #-------------------------------------------
 # Initial Conditions (call after connect())
 # Temporary. Should be computed in the synapse
 #synapses1.P                  = 1.1e-2 
 
-#u.lowLevelInfo(synapses1)
+groups = [astrocytes1, synapses1, synapses2]
+u.lowLevelInfo(groups)
 
 # Run Simulation
 print(scheduling_summary()) # NOT WORKING?
