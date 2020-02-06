@@ -18,7 +18,7 @@ def printData(astro_mon, b_mon, syn1_mon, syn2_mon):
     print("C1= ", astro_mon.C1)
     print("CC0= ", astro_mon.CC0)
     print("V0= ", astro_mon.V0)
-    print("TotCC= ", astro_mon.TotCC)
+    print("Tot_C= ", astro_mon.Tot_C)
     #print("s= ", b_mon.s)
     print("dR2= ", b_mon.dR2)
     print("L= ", b_mon.L)
