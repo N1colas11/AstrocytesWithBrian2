@@ -21,8 +21,7 @@ def printData(astro_mon, b_mon, syn1_mon, syn2_mon):
 	#print("s= ", b_mon.s)
 	print("dR2= ", b_mon.dR2)
 	print("L= ", b_mon.L)
-	print("syn2::CC= ", syn2_mon.CC)
-	print("syn2::Q= ", syn2_mon.Q)
+	#print("syn2::CC= ", syn2_mon.CC)
 	#print("syn2::b= ", syn2_mon.b)
 	print("syn1::P= ", syn1_mon.P)
 
