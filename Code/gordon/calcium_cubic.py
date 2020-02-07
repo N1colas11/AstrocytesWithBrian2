@@ -16,7 +16,7 @@ import utils as u
 # Initial conditions should be self-consistent in some way. 
 # What is V0, C0, etc at t=0?
 
-duration = 0.3*ms          # Total simulation time
+duration = 0.7*ms          # Total simulation time
 sim_dt = 0.1*ms            # Integrator/sampling step
 
 # Model definition
@@ -66,8 +66,6 @@ VVT = -2.*V/V_T : 1  # value of 0, which leads to a zero denominator
 
 # Has minimal impact on Calcium
 electro_diffusion = -P_Ca * V / (R * V_T) * (Ce*exp(-2*V/V_T) - Tot_C) / (exp(-2*V/V_T) - 1) : mole / second / meter**3
-#electro_diffusion :  mole / second / meter**3  # computed in synapse
-#electro_diffusion = 1 : 1
 
 A1 : meter**4 / mole 
 B1 : meter 
@@ -75,29 +73,31 @@ C1 : mole / meter**2
 
 CC0 : mole / meter**3
 V0 : volt
-A000_nb_connections : 1  # number of synaptic connections
-nb_connections2 : 1  # number of synaptic connections in synapses2
+nb_connections : 1  # number of synaptic connections
 
 # Calcium diffusion
-# Each term will be divided into two and recombined in the second synapse group into Tot_C
+# Each term will handle half a compartment 
 
-dC/dt = coupling_C + 0.*coupling_electro + 0.*electro_diffusion        : mole / meter**3
+dC/dt = 1*coupling_C + 1.*coupling_electro + 0.*electro_diffusion        : mole / meter**3
 
 
 '''
 
 N_astro = 3 # Total number of astrocytes1 in the network (each compartment broken into two
 N_astro = 2*N_astro # Total number of astrocytes1 in the network (each compartment broken into two
-astrocytes1 = NeuronGroup(N_astro, astro_eqs, method='euler', order=0, name='ng1')
+astrocytes1 = NeuronGroup(N_astro, astro_eqs, method='euler', name='ng1', order=1)
 
 # Initital Conditions
 astrocytes1.L = 8 *  umeter  # length of a compartment
 astrocytes1.R = 3 * umeter
 astrocytes1.r = 2 * umeter
+# Calcium in 1/2 compartment should be the value for the full compartment since the 1/2 compartment
+# Each 1/2 compartment only considers the fork at one end. 
+# is an artifact of the numerical scheme.
 astrocytes1.C = 1.1e-4  * mole / meter**3
 #astrocytes1.C = [1.1e-4, 1.5e-4, 1.6e-4]*2 * mole / meter**3
 
-astro_mon = StateMonitor(astrocytes1, variables=['Tot_C', 'coupling_C', 'coupling_electro', 'electro_diffusion', 'nb_connections2', 'A000_nb_connections', 'A1', 'B1', 'C1', 'CC0', 'V0'], record=True)
+astro_mon = StateMonitor(astrocytes1, variables=['Tot_C', 'coupling_C', 'coupling_electro', 'electro_diffusion', 'nb_connections', 'A1', 'B1', 'C1', 'CC0', 'V0'], record=True)
 b_mon = StateMonitor(astrocytes1, variables=['CC0', 'dR2', 's', 'L'], record=True)
 
 '''
@@ -111,7 +111,7 @@ synapse1_eqs = '''
 # Assuming the above is correct, let us figure out units. 
 # using C_pre:  C * F * s / Cm = V  ==> F / Cm = V / s / C = (V / s) * m^3 / mole
 
-dP/dt = 1*Hz : 1
+#dP/dt = 1*Hz : 1
 
 # Solution to quadratic C0 equation (calcium concentration)
 # A1 C0^2 + B1 C - C1 = 0
@@ -125,14 +125,14 @@ C1_pre = dR2_post * Tot_C_post / L_post : mole / meter**2 (summed)
 # Only computed to trick Brian into computing C0_pre by summing the values for all synapses (which will 
 #   all bequal  since it depends on A1, B1, C1, for which the summation has already been executed. 
 # There must be an easier method without calculating C0 and V0 in the NeuronGroup
-A000_nb_connections_pre = 1 : 1 (summed)
+nb_connections_pre = 1 : 1 (summed)
 
 # Figure out which branch to use: +sqrt or -sqrt? 
 # or -sqrt... But C0 > 0 (is C1*A1 always greater than 0?)
 
 # Notice I am dividing by the number of connections (3 if a single fork)
-CC0_pre = ((-B1_pre + sqrt(B1_pre**2 + 4*C1_pre*A1_pre)) / (2.*A1_pre)) / A000_nb_connections_pre : mole / meter**3 (summed)
-V0_pre = (Vrest + (CC0_pre - Crest) * (F * s) / Cm) / A000_nb_connections_pre   : volt  (summed)
+CC0_pre = ((-B1_pre + sqrt(B1_pre**2 + 4*C1_pre*A1_pre)) / (2.*A1_pre)) / nb_connections_pre : mole / meter**3 (summed)
+V0_pre = (Vrest + (CC0_pre - Crest) * (F * s) / Cm) / nb_connections_pre   : volt  (summed)
 
 # Investigate why this should be a minus sign
 coupling_C_post = (4*D_C / L_post**2) * (Tot_C_pre - Tot_C_post) : mole/second/meter**3 (summed)
@@ -149,14 +149,12 @@ synapse2_eqs = '''
 
 	# update Calcium in compartments
 	# This works because synapses are bidirectional i --> j and j --> i
-    nb_connections2_pre = 1 : 1 (summed)
 
 	# How many connection? 
 	Tot_C_pre   = Tot_C_syn       : mole / meter**3 (summed)
-	#Tot_C_post  = Tot_C_syn      : mole / meter**3 (summed)
 '''
 
-synapses1 = Synapses(astrocytes1, astrocytes1, model=synapse1_eqs, method='euler', order=2, name='sg1')
+synapses1 = Synapses(astrocytes1, astrocytes1, model=synapse1_eqs, method='euler', order=0, name='sg1')
 synapses2 = Synapses(astrocytes1, astrocytes1, model=synapse2_eqs, method='euler', order=5, name='sg2')
 
 # Connections count from 0
@@ -177,8 +175,28 @@ for pair in pairs:
 	synapses2.connect(i=pair[0], j=pair[1])
 	synapses2.connect(i=pair[1], j=pair[0])
 
+s = synapses1.summed_updaters
+s['nb_connections_pre'].order = 0
+s['A1_pre'].order = 2
+s['B1_pre'].order = 2
+s['C1_pre'].order = 2
+s['CC0_pre'].order = 4
+s['V0_pre'].order = 5
+s['coupling_C_post'].order = 6
+s['coupling_electro_pre'].order = 7
+
+astrocytes1.state_updater.order = 10
+
+s = synapses2.summed_updaters
+s['Tot_C_pre'].order = 13
+
+
+for k,v in s.items():
+	print("updater[%s]= " % k, v)
+
+
 # Must call StateMonitor AFTER synaptic connections are established
-syn1_mon = StateMonitor(synapses1, variables=['P'], record=True, name='syn1_mon')
+syn1_mon = StateMonitor(synapses1, variables=[], record=True, name='syn1_mon')
 syn2_mon = StateMonitor(synapses2, variables=[], record=True, name='syn2_mon')
 
 groups = [synapses1, synapses2]  #  must have i,j connections
