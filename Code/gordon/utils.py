@@ -19,6 +19,11 @@ def printData(astro_mon, b_mon, syn1_mon, syn2_mon):
     print("CC0= ", astro_mon.CC0)
     print("V0= ", astro_mon.V0)
     print("Tot_C= ", astro_mon.Tot_C)
+    try:
+        print("Tot_CE= ", astro_mon.Tot_CE)
+        print("Tot_I= ", astro_mon.Tot_I)
+    except:
+        pass
     #print("s= ", b_mon.s)
     print("dR2= ", b_mon.dR2)
     print("L= ", b_mon.L)
