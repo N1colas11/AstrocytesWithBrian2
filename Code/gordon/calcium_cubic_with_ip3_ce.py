@@ -36,7 +36,7 @@ print("Crest= ", Crest)
 
 P_Ca = 4.46e-13 * cm / second   # From "Calcium Permeability in Large Unilamellar Vesicles Prepared from Bovine Lens Cortical Lipids"
 V_T = 26 * mvolt
-Vrest  = -80 * mvolt
+Vrest  = -80 * mvolt    # in  your derivation, you set Vrest = 0
 F = 96485.3329 * amp * second / mole  #  is Coulomb
 k_B = 1.38064852e-23 * meter**2 * kilogram / second**2 / kelvin
 N_A = 6.02214076e23 / mole
@@ -46,6 +46,126 @@ D_C  = 5.3e-6 * cm**2 / second # from "Free diffusion coefficient of ionic calci
 D_CE = 5.3e-6 * cm**2 / second # (a guess, ER)
 D_I  = 5.3e-6 * cm**2 / second # (a guess, IP3)
 Rgas = 8.31 * joule / kelvin / mole
+
+
+# Constants found in currents
+# IP3 production
+O_delta = 0.6*umolar/second  # Maximal rate of IP_3 production by PLCdelta
+k_delta = 1.5* umolar        # Inhibition constant of PLC_delta by IP_3
+K_delta = 0.1*umolar         # Ca^2+ affinity of PLCdelta   <<<<<<<<<<<<<<<<<
+
+# IP3 degradation
+K_D  = 0.7*umolar            # Ca^2+ affinity of IP3-3K
+K_3  = 1.0*umolar            # IP_3 affinity of IP_3-3K
+O_3K = 4.5*umolar/second     # Maximal rate of IP_3 degradation by IP_3-3K
+
+# IP5 degradation
+o_5P = 0.05/second           # Maximal rate of IP_3 degradation by IP-5P
+K_5P = 10*umolar
+
+# IP3 delta Production
+o_delta = 0.6*umolar/second  # Maximal rate of IP_3 production by PLCdelta
+k_delta = 1.5* umolar    # Inhibition constant of PLC_delta by IP_3
+K_delta = 0.1*umolar         # Ca^2+ affinity of PLCdelta   <<<<<<<<<<<<<<<<<
+
+# Volume of an average soma
+Lambda = 2100*umeter**3
+# Not sure about this
+rho_A = 0.18                 # ER-to-cytoplasm volume ratio ?
+rho = rho_A / (1.+rho_A)     # ER-to-cytoplasm volume ratio ?
+
+# Multiply value of amplitudes by cytosolic volume (changed rho_A to rho)
+o_delta = 0.6  * umolar * Lambda * (1-rho) / second
+o_3K    = 4.5  * umolar * Lambda * (1-rho) / second
+o_5P    = 0.05 * umolar * Lambda * (1-rho) / second
+
+Omega_L = 0.1/second         # Maximal rate of Ca^2+ leak from the ER
+Omega_2 = 0.2/umolar/second      # IP_3R binding rate for Ca^2+ inhibition
+Omega_u = 0.2/umolar/second      # uptake/dissassociation constant
+
+# --- IP_3R kinectics
+d_1 = 0.13*umolar            # IP_3 binding affinity
+d_2 = 1.05*umolar            # Ca^2+ inactivation dissociation constant
+O_2 = 0.2/umolar/second      # IP_3R binding rate for Ca^2+ inhibition
+d_3 = 0.9434*umolar          # IP_3 dissociation constant
+d_5 = 0.08*umolar            # Ca^2+ activation dissociation constant
+
+p_open = 1
+P_r     = 1*umolar/second
+P_CE    = 1*umolar/second
+
+eta_p = 1
+d_ER  = 1 * umeter
+
+# Another complex calculation that depends on solution to a cubic equation
+# eqs. (73)-(76) in De Pitta's notes. MUST IMPLEMNENT. 
+# Later, evaluate the terms and figure out what is negligeable and what is not. 
+dv_ER = 0 * mvolt
+
+K_P = 0.05 * umolar          # Ca2+ affinity of SERCAs
+
+#o_3K
+#p_open
+#Pr
+#dv_ER
+#d_ER
+#N_A
+#Omega_u
+#eta_p
+
+'''
+ASTROCTE PARAMETERS
+### Astrocyte parameters
+# ---  Calcium fluxes
+# Value provided by MDP
+O_P = 1.0*umolar/second      # Maximal Ca^2+ uptake rate by SERCAs  (0.9 in MDP, 1.0 in Evan)
+# Value must equal v_er in Evan model
+#O_P = 4.4*umolar/second      # Maximal Ca^2+ uptake rate by SERCAs  (0.9 in MDP, 1.0 in Evan)
+
+K_P = 0.05 * umolar          # Ca2+ affinity of SERCAs
+C_T = 2*umolar               # Total cell free Ca^2+ content
+rho_A = 0.18                 # ER-to-cytoplasm volume ratio
+rho = rho_A / (1.+rho_A)     # ER-to-cytoplasm volume ratio
+Omega_C = 6/second           # Maximal rate of Ca^2+ release by IP_3Rs
+Omega_L = 0.1/second         # Maximal rate of Ca^2+ leak from the ER
+# --- IP_3R kinectics
+d_1 = 0.13*umolar            # IP_3 binding affinity
+d_2 = 1.05*umolar            # Ca^2+ inactivation dissociation constant
+O_2 = 0.2/umolar/second      # IP_3R binding rate for Ca^2+ inhibition
+d_3 = 0.9434*umolar          # IP_3 dissociation constant
+d_5 = 0.08*umolar            # Ca^2+ activation dissociation constant
+# --- IP_3 production
+O_delta = 0.6*umolar/second  # Maximal rate of IP_3 production by PLCdelta
+kappa_delta = 1.5* umolar    # Inhibition constant of PLC_delta by IP_3
+K_delta = 0.1*umolar         # Ca^2+ affinity of PLCdelta   <<<<<<<<<<<<<<<<<
+# --- IP_3 degradation
+O_5P = 0.05/second       # Maximal rate of IP_3 degradation by IP-5P
+K_5P = 10*umolar
+K_D = 0.7*umolar             # Ca^2+ affinity of IP3-3K
+K_3K = 1.0*umolar            # IP_3 affinity of IP_3-3K
+O_3K = 4.5*umolar/second     # Maximal rate of IP_3 degradation by IP_3-3K
+# --- IP_3 diffusion
+#F = 0.09*umolar/second    # Maximal exogenous IP3 flow
+I_Theta = 0.3*umolar         # Threshold gradient for IP_3 diffusion
+omega_I = 0.05*umolar        # Scaling factor of diffusion
+'''
+
+################################################################################
+# Additional and modified parameters
+################################################################################
+# Volume of an average soma
+Lambda = 2100*umeter**3
+
+# Multiply value of amplitudes by cytosolic volume (changed rho_A to rho)
+O_delta = 0.6  * umolar * Lambda * (1-rho) / second
+O_3K    = 4.5  * umolar * Lambda * (1-rho) / second
+O_5P    = 0.05 * umolar * Lambda * (1-rho) / second
+F       = 0.1 / second
+D       = 0.05 / second  # setting D to zero has no effect. Why?
+
+print("**** Omega_L= ", Omega_L)
+print("**** O_delta= ", O_delta) # 0.6
+print("**** K_delta= ", K_delta) # 0.6
 
 #----------------------------------------------------------------------
 astro_eqs = '''
@@ -83,50 +203,41 @@ nb_connections : 1  # number of synaptic connections
 # Calcium diffusion
 # Each term will handle half a compartment 
 
-dC/dt = 1*coupling_C + 1.*coupling_electro + 0.*electro_diffusion        : mole / meter**3
+dC/dt = 1*coupling_C + 1.*coupling_electro + 0.*electro_diffusion + Jr + J1 - Jp  : mole / meter**3
 
 ####  ENDOPLASMIC RETICULUM
 Tot_CE                 : mole/meter**3
 coupling_CE            : mole/second/meter**3
-dCE/dt = 1*coupling_CE : mole/meter**3
+dCE/dt = 1*coupling_CE + Jp/(rho*Lambda) - (Jr + J1)  : mole/meter**3
 
 ####  IP3
 Tot_I                  : mole/meter**3
 coupling_I             : mole/second/meter**3
-dI/dt = 1*coupling_CE  : mole/meter**3
+dI/dt = (Jbeta + Jdelta - J3K - J5P) / (Lambda*(1-rho)) + 1*coupling_CE   : mole/meter**3
 
 ### Open Channels
-dh/dt = OmegaH * (Hinf - h) : 1
+dh/dt = OmegaH * (hinf - h) : 1
 
 
 ################3
 ###  CURRENTS
 
-Jr     =
-J1     = 
-Jp     = 
-minf   = 
-ninf   = 
-hinf   = 
-OmegaH = 
-Jbeta  = 
-Jdelta = 
-J3K    = 
-J5P    = 
+Jr     = (2*r/dR2) * P_r * p_open * (CE-C) : mole/meter**3/second  # p_open, Pr
+J1     = (4*P_CE/r*VVT) * dv_ER * (C*exp(-2.*dv_ER/VVT) - CE) / (exp(-2.*dv_ER/VVT)-1.) : mole/meter**3/second  # dv_ER
+Jp     = (2*r*d_ER)/(N_A*dR2) * Omega_u * eta_p * C**2 / (C**2 + K_P**2) : mole/meter**3/second # d_ER, N_A, Omega_u, eta_p, K_p
+minf   =  I / (I + d_1)  : 1 # d_1
+ninf   = C / (C + d_5) : 1 # d_5
+hinf   =  d_2 * (I + d_1) / (d_2*(I +d_1) + (I+d_3)*C) : 1 # d_2, d_1, d_3
+OmegaH = (Omega_2*(I+d_1) + O_2*(I+d_3)*C) / (I + d_3) : Hz # Omega_2, O_2, d_1, d_3
 
 
 
 #IP3 dynamics
-Jdelta=O_delta * ( 1 - ( IP3 /(kappa_delta + IP3) ) * ( CaCYT**2/(CaCYT**2+K_delta**2) )  ) : mole/second
-J3k=O_3K * ( ( CaCYT**4/(CaCYT**4+K_D**4)) * (IP3/(K_3K+IP3) ) ) : mole/second
-J5p=O_5P * IP3 /(IP3 + K_5P) : mole/second
+Jbeta  = 0*mole/meter**3/second  : mole/meter**3/second
+Jdelta = o_delta * (k_delta/(I+k_delta)) * (C**2/(C**2+K_delta**2)) : mole/second  # not sure about units, o_delta, k_delta, K_delta
+J5P    = o_5P * (I/(I+K_5P)) : mole/second # o_5P, K_5P
+J3K    = o_3K * (C**4/(C**4+K_D**4)) * (I/(I+K_3)) : mole/second # o_3K, K_D, K_3
 
-# Calcium core
-minf=IP3/(IP3+d_1) : 1
-ninf=CaCYT/(CaCYT+d_5) : 1
-Jcicr=Omega_C*(minf*ninf*h)**3*(CaER-CaCYT) : mmolar/second
-Jleak=Omega_L*(CaER-CaCYT) : mmolar/second
-Jserca=O_P*CaCYT**2/(K_P**2+CaCYT**2) : mmolar/second
 '''
 
 N_astro = 3 # Total number of astrocytes1 in the network (each compartment broken into two

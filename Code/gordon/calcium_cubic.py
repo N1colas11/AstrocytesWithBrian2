@@ -16,7 +16,7 @@ import utils as u
 # Initial conditions should be self-consistent in some way. 
 # What is V0, C0, etc at t=0?
 
-duration = 0.7*ms          # Total simulation time
+duration = 0.5*ms          # Total simulation time
 sim_dt = 0.1*ms            # Integrator/sampling step
 
 # Model definition
@@ -58,7 +58,7 @@ coupling_C         : mole/second/meter**3
 coupling_electro   : mole / second / meter**3
 #coupling_electro = 1  : 1 
 
-# Tot_C is the total calcium (computed in synapses2)
+#" Tot_C is the total calcium (computed in synapses2)
 Tot_C : mole/meter**3
 
 V = Vrest + (F*s/Cm) * (Tot_C-Crest) : volt
