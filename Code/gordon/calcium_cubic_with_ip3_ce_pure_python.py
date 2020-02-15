@@ -6,6 +6,7 @@
 
 #from brian2 import *
 import utils as u
+import numpy as np
 #codegen.target = 'cython'
 
 # Author: Gordon Erlebacher
@@ -153,12 +154,20 @@ class RHS():
         self.g = g
 
     def rhs(self, C, Ce, h, I):
+        g = self.g
+
         # C: calcium
         # Ce: calcium in ER
         # h : fraction of open channels
         # h : IP3 concentration
 
-        g = self.g
+
+        dR2 = g.R**2 - g.r**2  #: meter**2
+        s = g.R + g.r          #: meter
+
+        V = g.Vrest + (g.F*s/g.Cm) * (C-g.Crest) #: volt
+        VVT = -2.*V/g.V_T #: 1  # value of 0, which leads to a zero denominator
+
         J_C = diff_C = 0
         J_Ce = diff_Ce = 0
         J_I = diff_I = 0
@@ -171,18 +180,34 @@ class RHS():
         #dC/dt = 1*coupling_C + 1.*coupling_electro + 0.*electro_diffusion + Jr + J1 - Jp  : mole / meter**3
         #dCE/dt = 1*coupling_CE + Jp/(rho*Lambda) - (Jr + J1)  : mole/meter**3
 
-        # Cytosol  Reticulum Dynamics
-        Jp = 0
-        Jr = 0
-        J1 = 0
-        electro_diffusion = 0
-        coupling_electro = 0
-        coupling_C = 0
-        dC/dt = 1*coupling_C + 1.*coupling_electro + 0.*electro_diffusion + Jr + J1 - Jp  : mole / meter**3
+        # Cytosol Dynamics
+        Tot_C = C
+        Tot_CE = Ce               #: mole/meter**3  (sum of Ce in two half compartments in Brian2 code)
+
+        Jr     = (2*g.r/dR2) * g.P_r * g.p_open * (Ce-C) #: mole/meter**3/second  # p_open, Pr
+        J1     = (4*g.P_CE/g.r*VVT) * g.dv_ER * (C*np.exp(-2.*g.dv_ER/VVT) - Ce) / (np.exp(-2.*g.dv_ER/VVT)-1.) #: mole/meter**3/second  # dv_ER
+        Jp     = (2*g.r*g.d_ER)/(g.N_A*dR2) * g.Omega_u * g.eta_p * C**2 / (C**2 + g.K_P**2) #: mole/meter**3/second # d_ER, N_A, Omega_u, eta_p, K_p
+        #minf   =  I / (I + d_1)  : 1 # d_1
+        #ninf   = C / (C + d_5) : 1 # d_5
+        #hinf   =  d_2 * (I + d_1) / (d_2*(I +d_1) + (I+d_3)*C) : 1 # d_2, d_1, d_3
+
+        # Must sum over two compartments. How to do this within this structure?
+        nb_connections = 1
+        A1 = (0.5 * g.F * s)/(g.Cm * g.V_T) * (dR2 / g.L)         #: meter**4 / mole (summed)
+        B1 = (1. - (s * g.F * C)/(2. * g.Cm * g.V_T))            #: meter (summed)
+        C1 = dR2 * C / g.L                              #: mole / meter**2 (summed)
+        CC0 = ((-B1 + np.sqrt(B1**2 + 4*C1*A1)) / (2.*A1)) / nb_connections #: mole / meter**3 (summed)
+        V0 = (g.Vrest + (CC0 - g.Crest) * (g.F * s) / g.Cm) / nb_connections   #: volt  (summed)
+
+        electro_diffusion = -g.P_Ca * V / (g.R * g.V_T) * (Ce*np.exp(-2*V/g.V_T) - Tot_C) / (np.exp(-2*V/g.V_T) - 1) #: mole / second / meter**3
+        coupling_electro = (4*g.D_C/g.L**2/g.V_T) * (CC0 + Tot_C) * (V0 - V) #: mole/second/meter**3 (summed) 
+        coupling_C = (4*g.D_C / g.L**2) * (Tot_C - Tot_C) #: mole/second/meter**3 (summed)  # ERROR. Cannot be zero.
+
+        rhs_C = 1*coupling_C + 1.*coupling_electro + 0.*electro_diffusion + Jr + J1 - Jp  #: mole / meter**3
 
         # Endoplasmic Reticulum Dynamnics
         coupling_Ce = (4*g.D_CE / g.L**2) * (Tot_CE - Tot_CE) #: mole/second/meter**3 (summed)  (CHECK) (most be Tot_Ce from each compartment 
-        rhs_Ce = 1*coupling_Ce + Jp/(rho*Lambda) - (Jr + J1)  #: mole/meter**3
+        rhs_Ce = 1*coupling_Ce + Jp/(g.rho*g.Lambda) - (Jr + J1)  #: mole/meter**3
 
         #IP3 dynamics
         Jbeta  = 0  #*mole/meter**3/second  : mole/meter**3/second
@@ -191,7 +216,6 @@ class RHS():
         J3K    = g.o_3K * (C**4/(C**4+g.K_D**4)) * (I/(I+g.K_3)) #: mole/second # o_3K, K_D, K_3
 
         # assume L constant (CHECK)
-        Tot_CE = Ce               #: mole/meter**3  (sum of Ce in two half compartments in Brian2 code)
         Tot_I  = I                #: mole/meter**3  (sum of Ce in two half compartments in Brian2 code)
         coupling_I  = (4*g.D_I  / g.L**2) * (Tot_I  - Tot_I)  # : mole/second/meter**3 (summed) (CHECK)
         rhs_I = (Jbeta + Jdelta - J3K - J5P) / (g.Lambda*(1-g.rho)) + 1*coupling_I   #: mole/meter**3
