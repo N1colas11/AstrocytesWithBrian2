@@ -110,6 +110,14 @@ class Parameters:
         self.dv_ER = 0  #* mvolt
     
         self.K_P = 0.05  #* umolar          # Ca2+ affinity of SERCAs
+
+        # variables normally vary per compartment
+        #astrocytes1.L = 8 *  umeter  # length of a compartment
+        #astrocytes1.R = 3 * umeter
+        #astrocytes1.r = 2 * umeter
+        self.L = 8 # *umeter
+        self.R = 3 # *umeter
+        self.r = 2 # *umeter
     
         #o_3K
         #p_open
@@ -163,18 +171,44 @@ class RHS():
         #dC/dt = 1*coupling_C + 1.*coupling_electro + 0.*electro_diffusion + Jr + J1 - Jp  : mole / meter**3
         #dCE/dt = 1*coupling_CE + Jp/(rho*Lambda) - (Jr + J1)  : mole/meter**3
 
+        # Cytosol  Reticulum Dynamics
+        Jp = 0
+        Jr = 0
+        J1 = 0
+        electro_diffusion = 0
+        coupling_electro = 0
+        coupling_C = 0
+        dC/dt = 1*coupling_C + 1.*coupling_electro + 0.*electro_diffusion + Jr + J1 - Jp  : mole / meter**3
+
+        # Endoplasmic Reticulum Dynamnics
+        coupling_Ce = (4*g.D_CE / g.L**2) * (Tot_CE - Tot_CE) #: mole/second/meter**3 (summed)  (CHECK) (most be Tot_Ce from each compartment 
+        rhs_Ce = 1*coupling_Ce + Jp/(rho*Lambda) - (Jr + J1)  #: mole/meter**3
+
         #IP3 dynamics
         Jbeta  = 0  #*mole/meter**3/second  : mole/meter**3/second
         Jdelta = g.o_delta * (g.k_delta/(I+g.k_delta)) * (C**2/(C**2+g.K_delta**2)) #: mole/second  # not sure about units, o_delta, k_delta, K_delta
         J5P    = g.o_5P * (I/(I+g.K_5P)) #: mole/second # o_5P, K_5P
         J3K    = g.o_3K * (C**4/(C**4+g.K_D**4)) * (I/(I+g.K_3)) #: mole/second # o_3K, K_D, K_3
 
-        coupling_Ce = 0 # CHECK
-        rhs_I = (Jbeta + Jdelta - J3K - J5P) / (g.Lambda*(1-g.rho)) + 1*coupling_Ce   #: mole/meter**3
+        # assume L constant (CHECK)
+        Tot_CE = Ce               #: mole/meter**3  (sum of Ce in two half compartments in Brian2 code)
+        Tot_I  = I                #: mole/meter**3  (sum of Ce in two half compartments in Brian2 code)
+        coupling_I  = (4*g.D_I  / g.L**2) * (Tot_I  - Tot_I)  # : mole/second/meter**3 (summed) (CHECK)
+        rhs_I = (Jbeta + Jdelta - J3K - J5P) / (g.Lambda*(1-g.rho)) + 1*coupling_I   #: mole/meter**3
 
+        # Open Channel dynamics
         OmegaH = (g.Omega_2*(I+g.d_1) + g.O_2*(I+g.d_3)*C) / (I + g.d_3) #: Hz # Omega_2, O_2, d_1, d_3
         hinf   =  g.d_2 * (I + g.d_1) / (g.d_2*(I + g.d_1) + (I + g.d_3)*C) #: 1 # d_2, d_1, d_3
         rhs_h = OmegaH * (hinf - h) #: 1
+#----------------------------------------------------------------------
+g = Parameters()
+
+# Single compartment
+rhs1 = RHS(g)
+rhs2 = RHS(g)  # must clean this up. Probably compartment should only store state variables. 
+               # the RHS equations are really the same for all compartments, except diffusion terms. 
+               # not yet clear how to handle these. 
+rhs1.rhs(1.,1.,1.,1.)  # arbitrary values of C, Ce, I, h
 #----------------------------------------------------------------------
 """
 # has large impact on diffusion. Creates instability
@@ -279,9 +313,6 @@ C1_pre = dR2_post * Tot_C_post / L_post : mole / meter**2 (summed)
 #   all bequal  since it depends on A1, B1, C1, for which the summation has already been executed. 
 """
 #----------------------------------------------------------------------
-g = Parameters()
-rhs = RHS(g)
-rhs.rhs(1.,1.,1.,1.)
 
 
 #----------------------------------------------------------------------

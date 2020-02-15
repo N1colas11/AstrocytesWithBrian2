@@ -213,7 +213,7 @@ dCE/dt = 1*coupling_CE + Jp/(rho*Lambda) - (Jr + J1)  : mole/meter**3
 ####  IP3
 Tot_I                  : mole/meter**3
 coupling_I             : mole/second/meter**3
-dI/dt = (Jbeta + Jdelta - J3K - J5P) / (Lambda*(1-rho)) + 1*coupling_CE   : mole/meter**3
+dI/dt = (Jbeta + Jdelta - J3K - J5P) / (Lambda*(1-rho)) + 1*coupling_I   : mole/meter**3
 
 ### Open Channels
 dh/dt = OmegaH * (hinf - h) : 1
