@@ -260,3 +260,9 @@ h  = np.array([1,1])
 I  = np.array([1,1])
 rhs1.rhs(C, Ce, h, I)  # arbitrary values of C, Ce, I, h
 #----------------------------------------------------------------------
+
+#Solver: https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.odeint.html
+# If I advance wach rhs separately, as opposed to stacking them first, set h0 = hmin = hmax, to make sure
+# that the stepsize used by the solver remains constant. 
+# I am not concerned with efficiency. This code is written to check against my Brian implementation. 
+
