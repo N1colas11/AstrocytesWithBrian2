@@ -34,24 +34,24 @@ class Parameters:
         # Extracellular calcium (for Goldman formula). 
         # What is the location? Where was Goldman's formula applied? Across the extracelluar membrane (radius R), 
         # or between the cytosol and the ER? 
-        self.Ce  = 1.e-4  # * umole / cm**3
+        self.Ce  = 1.e-4  # * umole / cm**3, ==> MKS:   10^(-6)/ 10^(-6) = mole / meter**3
         print("Ce= ", self.Ce)
-        self.Ce  = 1800  #* uM   # too large? 
+        self.Ce  = 1800  #* uM   # too large?  = 10^-6 M  (what is M versus mole?) <<<<<<<
         print("Ce= ", self.Ce)
         # From Oschmann Master thesis, page 53. 
-        self.Crest = 0.073 # * uM  # M is molar, u is micro
+        self.Crest = 0.073 # * uM  # M is molar, u is micro = 10^(-6) M  (M: Molar)
         print("Crest= ", self.Crest)
         
-        self.P_Ca = 4.46e-13 # * cm / second   # From "Calcium Permeability in Large Unilamellar Vesicles Prepared from Bovine Lens Cortical Lipids"
-        self.V_T = 26 # * mvolt
+        self.P_Ca = 4.46e-13 # * cm / second = 10^-2 m*Hz # From "Calcium Permeability in Large Unilamellar Vesicles Prepared from Bovine Lens Cortical Lipids"
+        self.V_T = 26 # * mvolt = 1.e-3 V
         self.Vrest  = -80 # * mvolt    # in  your derivation, you set Vrest = 0
         self.F = 96485.3329 # * amp * second / mole  #  is Coulomb
         self.k_B = 1.38064852e-23 # * meter**2 * kilogram / second**2 / kelvin
         self.N_A = 6.02214076e23 # / mole
         self.e = 1.602176634e-19 # * amp * second
-        self.Cm = 1 # * uF / meter**2 #: 1  #Capacitance per meter**2
+        self.Cm = 1 # * uF / meter**2 #: 1  #Capacitance per meter**2 = 10^-6 F / meter**2
         self.D_C  = 5.3e-6 # * cm**2 / second # from "Free diffusion coefficient of ionic calcium in cytoplasm", Donahue et al (1987)
-        self.D_CE = 5.3e-6 # * cm**2 / second # (a guess, ER)
+        self.D_CE = 5.3e-6 # * cm**2 / second # (a guess, ER) = 10-4 meter**2 / second
         self.D_I  = 5.3e-6 #* cm**2 / second # (a guess, IP3)
         self.Rgas = 8.31 # * joule / kelvin / mole
         
@@ -222,10 +222,15 @@ class RHS():
 
 		#-----------------------------
 		# Handle diffusion terms, which involve terms from two adjacent compartments
+        A1 = B1 = C1 = 0
         for i in [0,1]:
-            A1 = (0.5 * g.F * s)/(g.Cm * g.V_T) * (dR2 / g.L)         #: meter**4 / mole (summed)
-            B1 = (1. - (s * g.F * C[i])/(2. * g.Cm * g.V_T))            #: meter (summed)
-            C1 = dR2 * C[i] / g.L                              #: mole / meter**2 (summed)
+            A1 += (0.5 * g.F * s)/(g.Cm * g.V_T) * (dR2 / g.L)         #: meter**4 / mole (summed)
+            # Default: fac=1. I think it should be 1000 or 0.001 because V_T is givin in mVolts
+            fac = 1
+            B1 += (1. - (fac * s * g.F * C[i])/(2. * g.Cm * g.V_T))            #: meter (summed)
+            C1 += dR2 * C[i] / g.L                              #: mole / meter**2 (summed)
+
+        print("A1,B1,C1= ", A1, B1, C1)
 
         nb_connections = 1
         CC0 = ((-B1 + np.sqrt(B1**2 + 4*C1*A1)) / (2.*A1)) / nb_connections #: mole / meter**3 (summed)

@@ -1,53 +1,105 @@
-# 2020-02-04,1.15pm: Started synapse_groups branch. 
-# Objective: refine the two-synapse group architecture
-# 2020-02-07: add IP3 and Ce equations, even though the code is not certified to be correct. 
+\documentclass{article}
+\usepackage{amsmath}
+%\usepackage[utf8]{inputenc}
+%\usepackage[table]{xcolor}
+%-----------------------------------------------
+\title{Volumetric effects in astrocyte branching}
+\author{ }
+\date{January 2020}
+%-----------------------------------------------
+\begin{document}
 
-#  SIMPLIFY THE CODE TO ONLY KEEP THE Calcium and look at diffusion term only. 
+\maketitle
+\newcommand{\trm}{\textrm}
 
-from brian2 import *
-import utils as u
-#codegen.target = 'cython'
+\section{Introduction}
 
-### General parameters
-# if dt=1*ms, I get Nan
-# VVT is very non-smooth as a function of time
-# Following Maurizio's derivation, implement the solution to the cubic equation in Cytosolic Calcium concentration.
-# Otherwise very similar to voltage_cubic.py
+\section{Parameters}
+%Table~\ref{tab:params} lists the parameters of the problem. 
+\begin{center}
+% args: row to start, color for odd rows, color for even rows
+%{\rowcolors{2}{green!80!yellow!50}{green!70!yellow!40}
+\begin{tabular}{|l|l|l|l|} 
+\hline
+Symbol & Definition & Unit & Value \\
+\hline
+$C_e$ & Extracellular calcium concentration & $1800$ & ${\mu\trm{Mole}}$ \\
+$C_{rest}$ & Resting concentration & 0.073 & $\mu\trm{Molar}$ \\
+$p_{Ca}$ & Calcium permeability & $4.46\times 10^{-13}$ & $\trm{cm s}^{-1}$  \\
+$V_T$ & Thermal potential& $26$& $\trm{mV}$ \\
+$V_{rest}$& Resting potential & $-80$ & $\trm{mV}$ \\
+$F$ & Faraday Constant &$96485.3329$ &$\trm{A s Mole}^{-1}$   \\
+$k_B$ & Boltzman constant&$1.38064852\times 10^{-23}$ & $\trm{m}^2 \trm{kg s}^{-2} \trm{K}^{-1}$ \\
+$N_A$ & Avogradro number& $6.02214076 \times 10^{23}$& $\trm{Mole}^{-1}$ \\
+$e$ & Electron charge& $1.602176634\times 10{-19}$& $\trm{A s}$ \\
+$C_m$ & Membrane capacity& 1 &$\mu\trm{F}^2 \trm{m}^{-2}$  \\
+$R_{gas}$ & Gas Constant& 8.31 & $\trm{J K}^{-1} \trm{Mole}^{-1}$\\
+$D_C$ & Calcium Diffusion Constant& $5.3 \times 10^{-6}$ & $\trm{cm}^2/\trm{s}$ \\   % <<< FIRST ERROR
+$R$ & Compartment radius & 3 & $\mu\trm{m}$  \\
+$r$ & ER radius & 2 & $\mu\trm{m}$  \\
+$L$ & Compartment length& 8 & $\mu\trm{m}$  \\
+$A$ & Current& 1 & $\trm{volt}^{-1}$ \\
+$C$ & Initial value for cytosolic calcium & $1.1\times 10^{-4}$ & $\trm{Mole m}^{-3}$  \\
+\hline
+$d_1$ &   &     & \\
+$d_2$ &   &     & \\
+$d_3$ &   &     & \\
+$d_5$ &   &     & \\
+$d_1$ &   &     & \\
+$d_1$ &   &     & \\
+\hline
+$d_3$ &   &     & \\
+$d_5$ &   &     & \\
+$d_1$ &   &     & \\
+$d_1$ &   &     & \\
+\hline
+$d_3$ &   &     & \\
+$d_5$ &   &     & \\
+$d_1$ &   &     & \\
+$d_1$ &   &     & \\
+\hline
+$d_3$ &   &     & \\
+$d_5$ &   &     & \\
+$d_1$ &   &     & \\
+$d_1$ &   &     & \\
+\hline
+$d_3$ &   &     & \\
+$d_5$ &   &     & \\
+$d_1$ &   &     & \\
+$d_1$ &   &     & \\
+\hline
+$d_3$ &   &     & \\
+$d_5$ &   &     & \\
+$d_1$ &   &     & \\
+$d_1$ &   &     & \\
+\hline
+$d_3$ &   &     & \\
+$d_5$ &   &     & \\
+$d_1$ &   &     & \\
+$d_1$ &   &     & \\
+\hline
+$d_3$ &   &     & \\
+$d_5$ &   &     & \\
+$d_1$ &   &     & \\
+$d_1$ &   &     & \\
+\hline
+$d_3$ &   &     & \\
+$d_5$ &   &     & \\
+$d_1$ &   &     & \\
+$d_1$ &   &     & \\
+\hline
+$d_3$ &   &     & \\
+$d_5$ &   &     & \\
+$d_1$ &   &     & \\
+$Gordon$ &   &     & \\
+\hline
+\hline
+\end{tabular} \\
+Table~\cite{tab_params}. Model parameters.
+\end{center}
+%}
 
-# Initial conditions should be self-consistent in some way. 
-# What is V0, C0, etc at t=0?
-
-duration = 0.7*ms          # Total simulation time
-sim_dt = 0.1*ms            # Integrator/sampling step
-
-# Model definition
-defaultclock.dt = sim_dt     # Set the integration time
-
-# Extracellular calcium (for Goldman formula). 
-# What is the location? Where was Goldman's formula applied? Across the extracelluar membrane (radius R), 
-# or between the cytosol and the ER? 
-Ce  = 1.e-4 * umole / cm**3
-print("Ce= ", Ce)
-Ce  = 1800 * uM   # too large? 
-print("Ce= ", Ce)
-# From Oschmann Master thesis, page 53. 
-Crest = 0.073 * uM  # M is molar, u is micro
-print("Crest= ", Crest)
-
-P_Ca = 4.46e-13 * cm / second   # From "Calcium Permeability in Large Unilamellar Vesicles Prepared from Bovine Lens Cortical Lipids"
-V_T = 26 * mvolt
-Vrest  = -80 * mvolt    # in  your derivation, you set Vrest = 0
-F = 96485.3329 * amp * second / mole  #  is Coulomb
-k_B = 1.38064852e-23 * meter**2 * kilogram / second**2 / kelvin
-N_A = 6.02214076e23 / mole
-e = 1.602176634e-19 * amp * second
-Cm = 1 * uF / meter**2 #: 1  #Capacitance per meter**2
-D_C  = 5.3e-6 * cm**2 / second # from "Free diffusion coefficient of ionic calcium in cytoplasm", Donahue et al (1987)
-D_CE = 5.3e-6 * cm**2 / second # (a guess, ER)
-D_I  = 5.3e-6 * cm**2 / second # (a guess, IP3)
-Rgas = 8.31 * joule / kelvin / mole
-
-
+\begin{verbatim}
 # Constants found in currents
 # IP3 production
 O_delta = 0.6*umolar/second  # Maximal rate of IP_3 production by PLCdelta
@@ -65,7 +117,7 @@ K_5P = 10*umolar
 
 # IP3 delta Production
 o_delta = 0.6*umolar/second  # Maximal rate of IP_3 production by PLCdelta
-k_delta = 1.5*umolar         # Inhibition constant of PLC_delta by IP_3
+k_delta = 1.5* umolar    # Inhibition constant of PLC_delta by IP_3
 K_delta = 0.1*umolar         # Ca^2+ affinity of PLCdelta   <<<<<<<<<<<<<<<<<
 
 # Volume of an average soma
@@ -80,25 +132,19 @@ o_3K    = 4.5  * umolar * Lambda * (1-rho) / second
 o_5P    = 0.05 * umolar * Lambda * (1-rho) / second
 
 Omega_L = 0.1/second         # Maximal rate of Ca^2+ leak from the ER
-# ERROR: [Omega_2] = [O_2] [C]  (this is not the case]. 
-Omega_2 = 0.2/second      # IP_3R binding rate for Ca^2+ inhibition
-#Omega_2 = 0.2/umolar/second      # IP_3R binding rate for Ca^2+ inhibition
-Omega_u = 0.2/second      # uptake/dissassociation constant
-#Omega_u = 0.2/umolar/second      # uptake/dissassociation constant
+Omega_2 = 0.2/umolar/second      # IP_3R binding rate for Ca^2+ inhibition
+Omega_u = 0.2/umolar/second      # uptake/dissassociation constant
 
 # --- IP_3R kinectics
 d_1 = 0.13*umolar            # IP_3 binding affinity
 d_2 = 1.05*umolar            # Ca^2+ inactivation dissociation constant
-# ERROR: [Omega_2] = [O_2] [C]  (this is not the case]. 
 O_2 = 0.2/umolar/second      # IP_3R binding rate for Ca^2+ inhibition
 d_3 = 0.9434*umolar          # IP_3 dissociation constant
 d_5 = 0.08*umolar            # Ca^2+ activation dissociation constant
 
 p_open = 1
-#P_r     = 1/second  # not sure which one is correct.
-P_r     = 1*umeter/second
-#P_CE    = 1/second
-P_CE    = 1*umeter/second
+P_r     = 1*umolar/second
+P_CE    = 1*umolar/second
 
 eta_p = 1
 d_ER  = 1 * umeter
@@ -106,7 +152,7 @@ d_ER  = 1 * umeter
 # Another complex calculation that depends on solution to a cubic equation
 # eqs. (73)-(76) in De Pitta's notes. MUST IMPLEMNENT. 
 # Later, evaluate the terms and figure out what is negligeable and what is not. 
-dv_ER = 20 * mvolt
+dv_ER = 0 * mvolt
 
 K_P = 0.05 * umolar          # Ca2+ affinity of SERCAs
 
@@ -193,8 +239,7 @@ coupling_electro   : mole / second / meter**3
 Tot_C : mole/meter**3
 
 V = Vrest + (F*s/Cm) * (Tot_C-Crest) : volt
-# Not clear that VVT is required
-#VVT = -2.*V/V_T : 1  # value of 0, which leads to a zero denominator
+VVT = -2.*V/V_T : 1  # value of 0, which leads to a zero denominator
 
 # Has minimal impact on Calcium
 electro_diffusion = -P_Ca * V / (R * V_T) * (Ce*exp(-2*V/V_T) - Tot_C) / (exp(-2*V/V_T) - 1) : mole / second / meter**3
@@ -220,7 +265,7 @@ dCE/dt = 1*coupling_CE + Jp/(rho*Lambda) - (Jr + J1)  : mole/meter**3
 ####  IP3
 Tot_I                  : mole/meter**3
 coupling_I             : mole/second/meter**3
-dI/dt = (Jbeta + Jdelta - J3K - J5P) / (Lambda*(1-rho)) + 1*coupling_I   : mole/meter**3
+dI/dt = (Jbeta + Jdelta - J3K - J5P) / (Lambda*(1-rho)) + 1*coupling_CE   : mole/meter**3
 
 ### Open Channels
 dh/dt = OmegaH * (hinf - h) : 1
@@ -230,20 +275,12 @@ dh/dt = OmegaH * (hinf - h) : 1
 ###  CURRENTS
 
 Jr     = (2*r/dR2) * P_r * p_open * (CE-C) : mole/meter**3/second  # p_open, Pr
-J1     = (4*P_CE/r) * (dv_ER/V_T) * (C*exp(-2.*dv_ER/V_T) - CE) / (exp(-2.*dv_ER/V_T)-1.) : mole/meter**3/second  # dv_ER
+J1     = (4*P_CE/r*VVT) * dv_ER * (C*exp(-2.*dv_ER/VVT) - CE) / (exp(-2.*dv_ER/VVT)-1.) : mole/meter**3/second  # dv_ER
 Jp     = (2*r*d_ER)/(N_A*dR2) * Omega_u * eta_p * C**2 / (C**2 + K_P**2) : mole/meter**3/second # d_ER, N_A, Omega_u, eta_p, K_p
-#  Units should be mole/second according to LHS. What is missing? An inverse volume term. 
 minf   =  I / (I + d_1)  : 1 # d_1
 ninf   = C / (C + d_5) : 1 # d_5
 hinf   =  d_2 * (I + d_1) / (d_2*(I +d_1) + (I+d_3)*C) : 1 # d_2, d_1, d_3
 OmegaH = (Omega_2*(I+d_1) + O_2*(I+d_3)*C) / (I + d_3) : Hz # Omega_2, O_2, d_1, d_3
-# d_1: 0.13*umolar
-# d_3: 0.94*umolar
-# I: mole / meter**3
-# Omega_2: 0.2/umolar/second      # IP_3R binding rate for Ca^2+ inhibition
-# O_2 = 0.2/umolar/second      # IP_3R binding rate for Ca^2+ inhibition
-# OmegaH: Hz
-# ERROR: [Omega_2] = [O_2] [C]  (this is not the case]. 
 
 
 
@@ -288,11 +325,9 @@ synapse1_eqs = '''
 ####  CYTOPLASM
 
 # A1 stable: value does not change from iteration to iteration
-# A1 * C^2 + B1*C + C1 = 0
-# [A1] [C]^2 = [B1] [C] = [C1] ==> [B1] = [A1] [C] and C1 = A1 [C]^2
-A1_pre = (0.5 * F * s_post)/(Cm * V_T) * (dR2_post/L_post) : meter**4 / mole (summed)
-B1_pre = (dR2_post/L_post) * (1. - (s_post * F * Tot_C_post)/(2. * Cm * V_T)) : meter (summed) #[SHOULD NOT WORK. The formulas indicates units are [1]
-C1_pre = (dR2_post/L_Post) * Tot_C_post : mole / meter**2 (summed)
+A1_pre = (0.5 * F * s_post)/(Cm * V_T) * (dR2_post / L_post) : meter**4 / mole (summed)
+B1_pre = (1. - (s_post * F * Tot_C_post)/(2. * Cm * V_T)) : meter (summed)
+C1_pre = dR2_post * Tot_C_post / L_post : mole / meter**2 (summed)
 
 # Only computed to trick Brian into computing C0_pre by summing the values for all synapses (which will 
 #   all bequal  since it depends on A1, B1, C1, for which the summation has already been executed. 
@@ -365,40 +400,112 @@ s['CC0_pre'].order = 4
 s['V0_pre'].order = 5
 s['coupling_C_post'].order = 6
 s['coupling_electro_pre'].order = 7
-
-astrocytes1.state_updater.order = 10
-
-s = synapses2.summed_updaters
-s['Tot_C_pre'].order = 13
+\end{verbatim}
 
 
-for k,v in s.items():
-	print("updater[%s]= " % k, v)
+\section{Units of various terms}
+Let us consider the different constants and expressions that appear in the equations that govern $I$, $C$, $Ce$, and $h$. 
+We start with the Reaction current for the calcium equations. 
+\newpage
+\def\dvER{\Delta{v}_{ER}}
+\def\dER{d_{ER}}
+\def\dRtwo{\delta R^2}
+\def\VVT{{V_T}}
+\def\meter{\text{meter}}
+\def\Hz{\text{Hz}}
+\def\molar{\text{molar}}
+\def\mole{\text{mole}}
+\begin{align}
+J_r &= \frac{2 r P_r p_{open}}{\dRtwo}   (C_E-C)  \\ %: mole/meter  3/second  # p_open, Pr
+J_1 &= \frac{4 P_{C_E}}{r}\frac{\dvER}{\VVT} \, \frac{(C e^{- \frac{2\dvER}{\VVT}} - C_E)}{e^{-\frac{2\dvER}{\VVT}}-1} \\ %: mole/meter  3/second  # dv_ER
+J_p &= \frac{2 r\, d_{ER}}{\dRtwo}  \,\frac{\Omega_u\eta_p}{N_A}   \frac{C^2}{C^2 + K_P^2} \\ %: mole/meter  3/second # d_ER, N_A, Omega_u, eta_p, K_p
+\end{align}
+Consider the units (brackets denotes units): 
+\begin{align}
+[N_A] &= \mole^{-1} \\
+[P_r] &= \mu \meter \Hz \\
+[P_{C_E}] &= \mu \meter \Hz \\
+[\dvER] &= \text{mVolt} \\
+[\VVT] &= Volt \\
+[\dRtwo] &= (\mu\meter)^2 \\
+[r] = [\dER] &= \mu\meter \\
+[p_{open}] &= 1 \\
+[K_P] &= \mu \molar \\
+[\Omega_u] &= \Hz \\
+[J_1] = [J_r] = [J_p] &= \Hz \, \meter^{-3} \\
+[C] = [C_E] &= \mole \, \meter^{-3} 
+\end{align}
+
+\newpage
+Next, consider the currents associated with $I$ (IP3) and the associated units: 
+\def\kdelta{k_\delta}
+\def\Kdelta{K_\delta}
+\def\odelta{o_\delta}
+%\def\othreeK{o_{3K}}
+%\def\o5P{o_{5P}}
+\def\KD{K_D}
+%\def\K3{K_3}
+%\def\K5P{K_{5P}}
+
+\begin{align}
+J_\beta  &= 0  \\
+J_\delta &= \odelta \frac{\kdelta}{I+\kdelta} \, \frac{C^2}{C^2+\Kdelta^2} \\%: mole/second  # not sure about units, o_delta, k_delta, K_delta
+J_{5P}   &= o_{5P} \, \frac{I}{I+K_{5P}}   \\ %: mole/second # o_5P, K_5P
+J_{3K}   &=  o_{3K} \, \frac{C^4}{C^4+\KD^4} \, \frac{I}{I+K_3} %: mole/second # o_3K, K_D, K_3
+\end{align}
+
+and an evolution equation for $I$: 
+$$
+\frac{dI}{dt} = \frac{(J_\beta + J_\delta - J_{5P} - J_{3K})}{\Lambda(1-\rho)} + \text{diffusion}_I
+$$
+
+All $IP3$ currents are divided by a volume in the form $\Lambda(1-\rho)$ with units of $(\mu\meter)^3$. 
+
+From a dimensionality point of view, 
+\begin{align}
+[o_{5P}] = [o_{3K}] = [\odelta] &= \mu\molar\,\Hz \\
+[K_3] = [K_D] &= \mu\molar \\
+[\kdelta] = [\Kdelta] &= \mu\molar \\
+[\Lambda] &= (\mu\meter)^3 \\
+[J_\beta] = [J_\delta] = [J_{5P}] = [J_{3K}] &= \molar \, \Hz \\
+[I] &= \mole \, \meter^{-3}
+\end{align}
 
 
-# Must call StateMonitor AFTER synaptic connections are established
-syn1_mon = StateMonitor(synapses1, variables=[], record=True, name='syn1_mon')
-syn2_mon = StateMonitor(synapses2, variables=[], record=True, name='syn2_mon')
+\def\couplingCe{\text{coupling}_{CE}}
+\def\electrodiffusion{\text{electrodiffusion}_{CE}}
+\def\couplingelectro{\text{couplingelectro}}
+\def\couplingC{\text{Coupling}_C}
 
-groups = [synapses1, synapses2]  #  must have i,j connections
-u.connectionMatrices(groups)
+\newpage
+Finally, look at the various coupling terms. 
+\begin{align}
+[A_1] &= \frac{0.5\, F \, s}{C_m \, V_T} \, \frac{\dRtwo}{L} \\
+[B_1] &= \left(1 - \frac{s \, F \, C}{2\, C_m \, V_T}\right) \frac{\dRtwo}{L}   \\
+[C_1] &= \frac{\dRtwo \, C}{L}   \\
+[C_0] &= \frac{-B_1 + \sqrt{B_1^2 + 4C_1 A_1})}{2 A_1} \\
+[V_0] &= \frac{V_{rest} + (C_0 - C_{rest}) \, F  s}{C_m}  \\
+[\couplingCe] &= \frac{4 D_{CE} }{L^2} \, (C_{E0}-C_{E1}) \\
+[\electrodiffusion] &= -\frac{P_{Ca} \, V}{R \, V_T} \, \frac{C_E\, e^{-\frac{2V}{V_T}} - C} {e^{-\frac{2V}{V_T}} - 1}  \\
+[\couplingelectro]  &= \frac{4 D_C}{L^2 \, V_T} \, (C_0 + C) * (V_0 - V)   \\
+[\couplingC]        &= \frac{4 D_C}{L^2} \, (C_0 - C_1) 
+\end{align}
 
-
-#-------------------------------------------
-# Initial Conditions (call after connect())
-# Temporary. Should be computed in the synapse
-#synapses1.P                  = 1.1e-2 
-
-groups = [astrocytes1, synapses1, synapses2]
-u.lowLevelInfo(groups)
-
-# Run Simulation
-print(scheduling_summary())
-run(duration)
-#run(duration, report='text')
-
-u.printData(astro_mon, b_mon, syn1_mon, syn2_mon)
-quit()
-#u.plots(astro_mon)
+Here are the parameters: 
+\begin{align}
+[F] &= \text{Cb} \, \mole^{-1}   \\
+[C_m] &= \text{Farad} \, \meter^{-2}  = \text{Cb} \; \text{volt}^{-1} \meter^{-2} \\
+[V_T] = [V_{rest}] = [V] &= \text{Volt} \\
+[s] = [L] = [R] &= \mu\meter \\
+[C] = [C_{rest}] = [C_E] &= \mole \; \meter^{-3} \\
+[A_1] &= \text{Cb} \, \mole^{-1} \, \meter \, \text{Cb}^{-1} \, \meter^2 = \mole^{-1} \meter^3  = [C]^{-1} \\
+[B_1] &= \meter \\
+[C_1] &=  \meter \, [C] \\
+[P_{Ca}] &= \meter^{-1} \, \Hz \\
+[D_{CE}] &= \meter^2 \, \Hz 
+\end{align}
+\end{document}
 #----------------------------------------------------------------------
 
+\end{document}
+%
