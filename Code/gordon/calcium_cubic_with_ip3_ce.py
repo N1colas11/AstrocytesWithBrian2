@@ -47,6 +47,24 @@ D_CE = 5.3e-6 * cm**2 / second # (a guess, ER)
 D_I  = 5.3e-6 * cm**2 / second # (a guess, IP3)
 Rgas = 8.31 * joule / kelvin / mole
 
+#V = Vrest + (F*s/Cm) * (Tot_C-Crest) : volt
+print("F= ", F)
+print("1uF= ", 1*uF)
+print("1 Cb/Volt= ", 1*amp*second/(1*volt))
+Cm = 1 * uF / meter**2
+print("Cm= ", Cm)
+print("Crest= ", Crest)
+#F=  96485.3329 s A mol^-1
+#Cm=  1.e-06 m^-4 kg^-1 s^4 A^2
+#Cm = 1 * uF / meter**2 #: 1  #Capacitance per meter**2
+#  1 V = 1 kg m^2 s^−3 A^−1
+# (F*s/Cm)*mole*m^-3 = second*A*mole^-1 *m * m^4 * kg * s^-4 * A^-2 * mole * m^-3 
+#                    = Q m^2 kg Q^-2 s^-2  =  m^2 kg Q^-1 s^-2 = V 
+# metre ** 2 * kilogram * second ** -5 * amp ** -2 * mole)
+# = Volt * s^2 Q * s^-3 * Q^-2 * mole = Volt s^-1 Q^-1 * mole
+print(F * 1*meter / Cm)
+#quit()
+
 
 # Constants found in currents
 # IP3 production
@@ -166,7 +184,7 @@ Lambda = 2100*umeter**3
 O_delta = 0.6  * umolar * Lambda * (1-rho) / second
 O_3K    = 4.5  * umolar * Lambda * (1-rho) / second
 O_5P    = 0.05 * umolar * Lambda * (1-rho) / second
-F       = 0.1 / second
+#F       = 0.1 / second  # Already have a variable called F. What is this for? 
 D       = 0.05 / second  # setting D to zero has no effect. Why?
 
 print("**** Omega_L= ", Omega_L)
@@ -193,6 +211,7 @@ coupling_electro   : mole / second / meter**3
 Tot_C : mole/meter**3
 
 V = Vrest + (F*s/Cm) * (Tot_C-Crest) : volt
+
 # Not clear that VVT is required
 #VVT = -2.*V/V_T : 1  # value of 0, which leads to a zero denominator
 
@@ -303,6 +322,8 @@ nb_connections_pre = 1 : 1 (summed)
 CC0_pre = ((-B1_pre + sqrt(B1_pre**2 + 4*C1_pre*A1_pre)) / (2.*A1_pre)) / nb_connections_pre : mole / meter**3 (summed)
 V0_pre = (Vrest + (CC0_pre - Crest) * (F * s) / Cm) / nb_connections_pre   : volt  (summed)
 
+
+
 # Investigate why this should be a minus sign
 coupling_C_post = (4*D_C / L_post**2) * (Tot_C_pre - Tot_C_post) : mole/second/meter**3 (summed)
 
@@ -390,7 +411,7 @@ u.connectionMatrices(groups)
 #synapses1.P                  = 1.1e-2 
 
 groups = [astrocytes1, synapses1, synapses2]
-u.lowLevelInfo(groups)
+#u.lowLevelInfo(groups)  # lots of printouts
 
 # Run Simulation
 print(scheduling_summary())
