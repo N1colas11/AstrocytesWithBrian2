@@ -18,67 +18,6 @@ x = rand(10000)
 
 @btime a = Hill(x, 1., 2)
 
-
-
-function CIh(du, u, p, t)
-    Tot_C = C
-    Tot_CE = Ce               #: mole/meter**3  (sum of Ce in two half compartments in Brian2 code)
-
-    g = self.g
-
-    # C: calcium
-    # Ce: calcium in ER
-    # h : fraction of open channels
-    # h : IP3 concentration
-
-    # rhs_C, etc. Are arrays, created via implicit vectorization involving numpy arrays
-
-    dR2 = g.R**2 - g.r**2  #: meter**2
-    s = g.R + g.r          #: meter
-
-    V = g.Vrest + (g.F*s/g.Cm) * (C-g.Crest) #: volt
-    VVT = -2.*V/g.V_T #: 1  # value of 0, which leads to a zero denominator
-
-    J_C = diff_C   = 0
-    J_Ce = diff_Ce = 0
-    J_I = diff_I   = 0
-
-    rhs_C  = J_C + diff_C
-    rhs_Ce = J_Ce + diff_Ce
-    rhs_I  = J_I + diff_I
-
-    xxx   = -2.*d[:dv_ER]/d[:VVT]
-    J1    = (4*p[:P_CE]/p[:r]*p[:VVT]) * p[:dv_ER] * (C*np.exp(-2.*p[:dv_ER]/p[:VVT]) - Ce) / (np.exp(-xxx)-1.) #: mole/meter**3/second  # dv_ER
-    print("J1= ",J1)
-    Jp    = (2*g.r*g.d_ER)/(g.N_A*dR2) * g.Omega_u * g.eta_p * C**2 / (C**2 + g.K_P**2) #: mole/meter**3/second # d_ER, N_A, Omega_u, eta_p, K_p
-
-    rhs_C = Jr + J1 - Jp  #: mole / meter**3
-
-    # Endoplasmic Reticulum Dynamnics
-    rhs_Ce = Jp/(g.rho*g.Lambda) - (Jr + J1)  #:
-    Jbeta  = 0  #*mole/meter**3/second  : mole/meter**3/second
-    Jdelta = g.o_delta * (g.k_delta/(I+g.k_delta)) * (C**2/(C**2+g.K_delta**2)) #: mole/second  # not sure about units, o_delta, k_delta, K_delta
-    J5P    = g.o_5P * (I/(I+g.K_5P)) #: mole/second # o_5P, K_5P
-    J3K    = g.o_3K * (C**4/(C**4+g.K_D**4)) * (I/(I+g.K_3)) #: mole/second # o_3K, K_D, K_3
-
-    # assume L constant (CHECK)
-    Tot_I  = I                #: mole/meter**3  (sum of Ce in two half compartments in Brian2 code)
-    coupling_I  = (4*g.D_I  / g.L**2) * (I  - I)  # : mole/second/meter**3 (summed) (CHECK)
-    rhs_I = (Jbeta + Jdelta - J3K - J5P) / (g.Lambda*(1-g.rho)) #: mole/meter**3
-
-    # Open Channel dynamics
-    OmegaH = (g.Omega_2*(I+g.d_1) + g.O_2*(I+g.d_3)*C) / (I + g.d_3) #: Hz # Omega_2, O_2, d_1, d_3
-    hinf   =  g.d_2 * (I + g.d_1) / (g.d_2*(I + g.d_1) + (I + g.d_3)*C) #: 1 # d_2, d_1, d_3
-    rhs_h = OmegaH * (hinf - h) #: 1
-
-    dI = (Jbeta + Jdelta - J3K - J5P) / (Lambda*(1-rho)) + 1*coupling_CE   : mole/meter**3
-    dC = 1*coupling_C + 1.*coupling_electro + 0.*electro_diffusion + Jr + J1 - Jp  : mole / meter**3
-    dCE = 1*coupling_CE + Jp/(rho*Lambda) - (Jr + J1)  : mole/meter**3
-
-
-    du .= dC, dCE, dI, dh
-end
-
 function globalParameters()
     d = Dict()
     d[:Rgas] = 8.31   # joule / kelvin / mole
@@ -147,8 +86,97 @@ function globalParameters()
     return d
 end
 
-d = globalParameters()
+
+function CIh!(du, u, p, t)
+    Tot_C = C
+    Tot_CE = Ce               #: mole/meter**3  (sum of Ce in two half compartments in Brian2 code)
+
+    # C: calcium
+    # Ce: calcium in ER
+    # h : fraction of open channels
+    # h : IP3 concentration
+
+    # rhs_C, etc. Are arrays, created via implicit vectorization involving numpy arrays
+
+    dR2 = p[:R]^2 - p[:r]^2  #: meter**2
+    s = p[:R] + p[:r]          #: meter
+
+    V = p[:Vrest] + (p[:F]*s/p[:Cm]) * (C-p[:Crest]) #: volt
+    VVT = -2. * V/p[:V_T] #: 1  # value of 0, which leads to a zero denominator
+
+    J_C = diff_C   = 0
+    J_Ce = diff_Ce = 0
+    J_I = diff_I   = 0
+
+    rhs_C  = J_C + diff_C
+    rhs_Ce = J_Ce + diff_Ce
+    rhs_I  = J_I + diff_I
+
+    xxx   = -2. * p[:dv_ER]/p[:VVT]
+    J1    = (4 *p[:P_CE]/p[:r]*p[:VVT]) * p[:dv_ER] * (C*np.exp(-2. *p[:dv_ER]/p[:VVT]) - Ce) / (np.exp(-xxx)-1.) #: mole/meter**3/second  # dv_ER
+    print("J1= ",J1)
+    Jp    = (2 *p[:r]*p[:d_ER])/(p[:N_A]*dR2) * p[:Omega_u] * p[:eta_p] * C*2 / (C^2 + p[:K_P]^2) #: mole/meter**3/second # d_ER, N_A, Omega_u, eta_p, K_p
+
+    rhs_C = Jr + J1 - Jp  #: mole / meter**3
+
+    # Endoplasmic Reticulum Dynamnics
+    rhs_Ce = Jp/(p[:rho]*p[:Lambda]) - (Jr + J1)  #:
+    Jbeta  = 0  #*mole/meter**3/second  : mole/meter**3/second
+    Jdelta = p[:o_delta] * (p[:k_delta]/(I+p[:k_delta])) * (C^2/(C^2+p[:K_delta]^2)) #: mole/second  # not sure about units, o_delta, k_delta, K_delta
+    J5P    = p[:o_5P] * (I/(I+p[:K_5P])) #: mole/second # o_5P, K_5P
+    J3K    = p[:o_3K] * (C^4/(C^4+p[:K_D]^4)) * (I/(I+p[:K_3])) #: mole/second # o_3K, K_D, K_3
+
+    # assume L constant (CHECK)
+    Tot_I  = I                #: mole/meter**3  (sum of Ce in two half compartments in Brian2 code)
+    coupling_I  = (4*p[:D_I]  / p[:L]^2) * (I  - I)  # : mole/second/meter**3 (summed) (CHECK)
+    rhs_I = (Jbeta + Jdelta - J3K - J5P) / (p[:Lambda]*(1-p[:rho])) #: mole/meter**3
+
+    # Open Channel dynamics
+    OmegaH = (p[:Omega_2]*(I+p[:d_1]) + p[:O_2]*(I+p[:d_3])*C) / (I + p[:d_3]) #: Hz # Omega_2, O_2, d_1, d_3
+    hinf   =  p[:d_2] * (I + p[:d_1]) / (p[:d_2]*(I + p[:d_1]) + (I + p[:d_3])*C) #: 1 # d_2, d_1, d_3
+    rhs_h = OmegaH * (hinf - h) #: 1
+
+    #-----------------------------
+    # Handle diffusion terms, which involve terms from two adjacent compartments
+    A1 = B1 = C1 = 0
+    for i ∈ [0,1]
+        A1 += (0.5 * p[:F] * s)/(p[:Cm] * p[:V_T]) * (dR2 / p[:L])         #: meter**4 / mole (summed)
+        # Default: fac=1. I think it should be 1000 or 0.001 because V_T is givin in mVolts
+        fac = 1
+        B1 += (1. - (fac * s * p[:F] * C[i])/(2. * p[:Cm] * p[:V_T]))            #: meter (summed)
+        C1 += dR2 * C[i] / p[:L]                              #: mole / meter**2 (summed)
+    end
+
+    print("A1,B1,C1= ", A1, B1, C1)
+
+    nb_connections = 1
+    CC0 = ((-B1 + np.sqrt(B1^2 + 4*C1*A1)) / (2*A1)) / nb_connections #: mole / meter**3 (summed)
+    V0 = (p[:Vrest] + (CC0 - p[:Crest]) * (p[:F] * s) / p[:Cm]) / nb_connections   #: volt  (summed)
+
+    coupling_Ce = (4*p[:D_CE] / p[:L]^2) * (Ce[0]-Ce[1]) * np.array([1,-1])  #: mole/second/meter**3 (summed)  (CHECK) (most be Tot_Ce from each compartment
+    electro_diffusion = -p[:P_Ca] * V / (p[:R] * p[:V_T]) * (Ce*np.exp(-2*V/p[:V_T]) - C) / (np.exp(-2*V/p[:V_T]) - 1) #: mole / second / meter**3
+    coupling_electro = (4*p[:D_C]/p[:L]^2/p[:V_T]) * (CC0 + C) * (V0 - V)  #: mole/second/meter**3 (summed)
+    coupling_C = (4*p[:D_C] / p[:L]^2) * (C[0] - C[1]) * np.array([1,-1]) #: mole/second/meter**3 (summed)  # ERROR. Cannot be zero.
+
+
+    dI = (Jbeta + Jdelta - J3K - J5P) / (Lambda*(1-rho)) + 1*coupling_CE   #: mole/meter**3
+    dC = 1*coupling_C + 1*coupling_electro + 0*electro_diffusion + Jr + J1 - Jp  #: mole / meter**3
+    dCE = 1*coupling_CE + Jp/(rho*Lambda) - (Jr + J1)  #: mole/meter**3
+
+
+    du .= dC, dCE, dI, dh  # .= to force update of list via reference
+end
+
+
+
+
+p = globalParameters()
 println(d)
+
+u0 = [.1, .2, .3, .4]
+CIh!(du, u0, p, t)
+println(du)
+
 
 
 u0 = [1., 2.]
