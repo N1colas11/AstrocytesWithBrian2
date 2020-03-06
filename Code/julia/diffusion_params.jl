@@ -1,6 +1,5 @@
-using DifferentialEquations
-using Plots
-using BenchmarkTools
+using DifferentialEquations, Plots, BenchmarkTools
+
 
 function coupled!(du, u, p, t)
     α, β, D1, D2 = p
@@ -9,6 +8,7 @@ function coupled!(du, u, p, t)
     dc2 = β*c2  + D2 * (c1-c2)
     du .= [dc1, dc2]  # note the broadcast operator!
 end
+
 
 function Hill(x, p, n)
     return @. x^n / (x^n + p^n)
@@ -23,7 +23,7 @@ function globalParameters()
     d[:Rgas] = 8.31   # joule / kelvin / mole
     d[:D_I] = 5.3e-10 # Hz * meter^2
     d[:D_C] = 5.3e-10 # Hz * meter^2
-    println("D_C: ", d[:D_C])
+    d[:D_CE] = 5.3e-10 # Hz * meter^2
     d[:Cm] = 1.e-6   # Farad * meter^-2
     d[:e] = 1.602176634e-19  # Amp * second
     d[:N_A] = 6.02214076e23 # mole^-1
@@ -32,6 +32,7 @@ function globalParameters()
     d[:V_T] = 0.026  # voltage_cubic
     d[:P_Ca] = 4.46e-15  # meter * Hz
     d[:Crest] = 0.073e-6 # Molar
+    d[:Vrest] = -80. # Volt
     d[:Ce] = 1.800  #  mole/meter**3]
     d[:Ce] = 1.e-4  #  mole/meter**3]  # WHICH ONE TO CHOOSE?
 
@@ -88,6 +89,13 @@ end
 
 
 function CIh!(du, u, p, t)
+    #C, Ce, I, h = u
+    C = @view(u[1:1:2])
+    Ce = @view(u[3:1:4])
+    I = @view(u[5:1:6])
+    h = @view(u[7:1:8])
+    println("... Ce= ", Ce)
+
     Tot_C = C
     Tot_CE = Ce               #: mole/meter**3  (sum of Ce in two half compartments in Brian2 code)
 
@@ -97,87 +105,105 @@ function CIh!(du, u, p, t)
     # h : IP3 concentration
 
     # rhs_C, etc. Are arrays, created via implicit vectorization involving numpy arrays
-
     dR2 = p[:R]^2 - p[:r]^2  #: meter**2
-    s = p[:R] + p[:r]          #: meter
-
-    V = p[:Vrest] + (p[:F]*s/p[:Cm]) * (C-p[:Crest]) #: volt
+    s = p[:R] + p[:r]
+    V = p[:Vrest] .+ (p[:F]*s/p[:Cm]) * (C .- p[:Crest]) #: volt
     VVT = -2. * V/p[:V_T] #: 1  # value of 0, which leads to a zero denominator
 
     J_C = diff_C   = 0
     J_Ce = diff_Ce = 0
     J_I = diff_I   = 0
 
-    rhs_C  = J_C + diff_C
-    rhs_Ce = J_Ce + diff_Ce
-    rhs_I  = J_I + diff_I
+    Jr     = @. (2*p[:r]/dR2) * p[:P_r] * p[:p_open] * (Ce - C) #: mole/meter**3/second  # p_open, Pr
+    xxx   = @. -2. * p[:dv_ER]/VVT
+    println("xxx= ", xxx)
+    println("VVT= ", VVT)
+    println("C= ", C)
+    println("Ce= ", Ce)
+    # J1 has 4 elements instead of 2!! Not possible
+    J1   = @. (4 *p[:P_CE]/p[:r]) * VVT * p[:dv_ER] * (C * exp(-2 * p[:dv_ER] / VVT) - Ce) / (exp(-xxx) - 1.) #: mole/meter**3/second  # dv_ER
+    Jp   = @. (2 *p[:r]*p[:d_ER])/(p[:N_A]*dR2) * p[:Omega_u] * p[:eta_p] * C*2 / (C^2 + p[:K_P]^2) #: mole/meter**3/second # d_ER, N_A, Omega_u, eta_p, K_p
 
-    xxx   = -2. * p[:dv_ER]/p[:VVT]
-    J1    = (4 *p[:P_CE]/p[:r]*p[:VVT]) * p[:dv_ER] * (C*np.exp(-2. *p[:dv_ER]/p[:VVT]) - Ce) / (np.exp(-xxx)-1.) #: mole/meter**3/second  # dv_ER
-    print("J1= ",J1)
-    Jp    = (2 *p[:r]*p[:d_ER])/(p[:N_A]*dR2) * p[:Omega_u] * p[:eta_p] * C*2 / (C^2 + p[:K_P]^2) #: mole/meter**3/second # d_ER, N_A, Omega_u, eta_p, K_p
-
-    rhs_C = Jr + J1 - Jp  #: mole / meter**3
+    println("Jr= ", Jr)
+    println("J1= ", J1)
+    println("Jp= ", Jp)
+    rhs_C = @. Jr + J1 - Jp  #: mole / meter**3
 
     # Endoplasmic Reticulum Dynamnics
-    rhs_Ce = Jp/(p[:rho]*p[:Lambda]) - (Jr + J1)  #:
+    rhs_Ce = @. Jp/(p[:rho]*p[:Lambda]) - (Jr + J1)  #:
     Jbeta  = 0  #*mole/meter**3/second  : mole/meter**3/second
-    Jdelta = p[:o_delta] * (p[:k_delta]/(I+p[:k_delta])) * (C^2/(C^2+p[:K_delta]^2)) #: mole/second  # not sure about units, o_delta, k_delta, K_delta
-    J5P    = p[:o_5P] * (I/(I+p[:K_5P])) #: mole/second # o_5P, K_5P
-    J3K    = p[:o_3K] * (C^4/(C^4+p[:K_D]^4)) * (I/(I+p[:K_3])) #: mole/second # o_3K, K_D, K_3
+    Jdelta = @. p[:o_delta] * (p[:k_delta]/(I+p[:k_delta])) * (C^2/(C^2+p[:K_delta]^2)) #: mole/second  # not sure about units, o_delta, k_delta, K_delta
+    J5P    = @. p[:o_5P] * (I/(I+p[:K_5P])) #: mole/second # o_5P, K_5P
+    J3K    = @. p[:o_3K] * (C^4/(C^4+p[:K_D]^4)) * (I/(I+p[:K_3])) #: mole/second # o_3K, K_D, K_3
 
     # assume L constant (CHECK)
     Tot_I  = I                #: mole/meter**3  (sum of Ce in two half compartments in Brian2 code)
-    coupling_I  = (4*p[:D_I]  / p[:L]^2) * (I  - I)  # : mole/second/meter**3 (summed) (CHECK)
-    rhs_I = (Jbeta + Jdelta - J3K - J5P) / (p[:Lambda]*(1-p[:rho])) #: mole/meter**3
+    coupling_I  = @. (4*p[:D_I]  / p[:L]^2) * (I  - I)  # : mole/second/meter**3 (summed) (CHECK)
 
     # Open Channel dynamics
-    OmegaH = (p[:Omega_2]*(I+p[:d_1]) + p[:O_2]*(I+p[:d_3])*C) / (I + p[:d_3]) #: Hz # Omega_2, O_2, d_1, d_3
-    hinf   =  p[:d_2] * (I + p[:d_1]) / (p[:d_2]*(I + p[:d_1]) + (I + p[:d_3])*C) #: 1 # d_2, d_1, d_3
-    rhs_h = OmegaH * (hinf - h) #: 1
+    OmegaH = @. (p[:Omega_2]*(I+p[:d_1]) + p[:O_2]*(I+p[:d_3])*C) / (I + p[:d_3]) #: Hz # Omega_2, O_2, d_1, d_3
+    hinf   = @. p[:d_2] * (I + p[:d_1]) / (p[:d_2]*(I + p[:d_1]) + (I + p[:d_3])*C) #: 1 # d_2, d_1, d_3
 
     #-----------------------------
     # Handle diffusion terms, which involve terms from two adjacent compartments
-    A1 = B1 = C1 = 0
-    for i ∈ [0,1]
-        A1 += (0.5 * p[:F] * s)/(p[:Cm] * p[:V_T]) * (dR2 / p[:L])         #: meter**4 / mole (summed)
+    A1 = 0
+    B1 = 0
+    C1 = 0
+
+    for i ∈ [1,2]
+        A1 += @. (0.5 * p[:F] * s)/(p[:Cm] * p[:V_T]) * (dR2 / p[:L])         #: meter**4 / mole (summed)
         # Default: fac=1. I think it should be 1000 or 0.001 because V_T is givin in mVolts
         fac = 1
-        B1 += (1. - (fac * s * p[:F] * C[i])/(2. * p[:Cm] * p[:V_T]))            #: meter (summed)
-        C1 += dR2 * C[i] / p[:L]                              #: mole / meter**2 (summed)
+        println(C[i])
+        B1 += @. (1. - (fac * s * p[:F] * C[i])/(2. * p[:Cm] * p[:V_T]))            #: meter (summed)
+        C1 += @. dR2 * C[i] / p[:L]                              #: mole / meter**2 (summed)
     end
 
     print("A1,B1,C1= ", A1, B1, C1)
 
     nb_connections = 1
-    CC0 = ((-B1 + np.sqrt(B1^2 + 4*C1*A1)) / (2*A1)) / nb_connections #: mole / meter**3 (summed)
-    V0 = (p[:Vrest] + (CC0 - p[:Crest]) * (p[:F] * s) / p[:Cm]) / nb_connections   #: volt  (summed)
+    CC0               = @. ((-B1 + sqrt(B1^2 + 4*C1*A1)) / (2*A1)) / nb_connections #: mole / meter**3 (summed)
+    V0                = @. (p[:Vrest] + (CC0 - p[:Crest]) * (p[:F] * s) / p[:Cm]) / nb_connections   #: volt  (summed)
+    coupling_Ce       = @. (4*p[:D_CE] / p[:L]^2) * (Ce[1]-Ce[2]) * (1,-1)   #: mole/second/meter**3 (summed)  (CHECK) (most be Tot_Ce from each compartment
+    electro_diffusion = @. -p[:P_Ca] * V / (p[:R] * p[:V_T]) * (Ce*exp(-2*V/p[:V_T]) - C) / (exp(-2*V/p[:V_T]) - 1) #: mole / second / meter**3
+    coupling_electro  = @. (4*p[:D_C]/p[:L]^2/p[:V_T]) * (CC0 + C) * (V0 - V)  #: mole/second/meter**3 (summed)
+    coupling_C        = @. (4*p[:D_C] / p[:L]^2) * (C[1] - C[2]) * (1,-1) #: mole/second/meter**3 (summed)  # ERROR. Cannot be zero.
 
-    coupling_Ce = (4*p[:D_CE] / p[:L]^2) * (Ce[0]-Ce[1]) * np.array([1,-1])  #: mole/second/meter**3 (summed)  (CHECK) (most be Tot_Ce from each compartment
-    electro_diffusion = -p[:P_Ca] * V / (p[:R] * p[:V_T]) * (Ce*np.exp(-2*V/p[:V_T]) - C) / (np.exp(-2*V/p[:V_T]) - 1) #: mole / second / meter**3
-    coupling_electro = (4*p[:D_C]/p[:L]^2/p[:V_T]) * (CC0 + C) * (V0 - V)  #: mole/second/meter**3 (summed)
-    coupling_C = (4*p[:D_C] / p[:L]^2) * (C[0] - C[1]) * np.array([1,-1]) #: mole/second/meter**3 (summed)  # ERROR. Cannot be zero.
+    dh  = @. OmegaH * (hinf - h) #: 1
+    dI  = @. (Jbeta + Jdelta - J3K - J5P) / (p[:Lambda]*(1-p[:rho])) #: mole/meter**3
+    dC  = @. 1*coupling_C + 1*coupling_electro + 0*electro_diffusion + Jr + J1 - Jp  #: mole / meter**3
+    dCE = @. 1*coupling_Ce + Jp/(p[:rho]*p[:Lambda]) - (Jr + J1)  #: mole/meter**3
+    print("dC= ", dC)
 
-
-    dI = (Jbeta + Jdelta - J3K - J5P) / (Lambda*(1-rho)) + 1*coupling_CE   #: mole/meter**3
-    dC = 1*coupling_C + 1*coupling_electro + 0*electro_diffusion + Jr + J1 - Jp  #: mole / meter**3
-    dCE = 1*coupling_CE + Jp/(rho*Lambda) - (Jr + J1)  #: mole/meter**3
-
-
-    du .= dC, dCE, dI, dh  # .= to force update of list via reference
+    #du .= dC, dCE, dI, dh  # .= to force update of list via reference
+    # I need a more elegant approach
+    du[1:2] = dC
+    du[3:4] = dCE
+    du[5:6] = dI
+    du[7:8] = dh
 end
 
 
 
+nb_neurons = 2
+eqs_per_neuron = 4
+# Initial Conditions
+c0 = rand(nb_neurons)
+ce0 = rand(nb_neurons)
+h0 = rand(nb_neurons)
+I0 = rand(nb_neurons)
+u0 = vcat(c0,ce0,h0,I0)
 
-p = globalParameters()
-println(d)
-
-u0 = [.1, .2, .3, .4]
-CIh!(du, u0, p, t)
-println(du)
-
-
+pars = globalParameters()
+tspan = (0., 1.)  # make these real
+#u0 = [.1, .2, .3, .4]
+# We have 8 equations. How to collect them?
+#CIh!(du, u0, p, t)
+prob = ODEProblem(CIh!, u0, tspan, pars)  # d is a parameter dictionary
+println(prob)
+sol = solve(prob, Tsit5())
+println(prob)
+println("--------------------")
 
 u0 = [1., 2.]
 tspan = (0., 3.)
@@ -186,7 +212,6 @@ p = [1.0, 1.]
 βs = 3, 4
 
 function solve_CIh!(u0, tspan, d)
-    prob = ODEProblem(CIh!, u0, tspan, d)  # d is a parameter dictionary
     solve(prob, Tsit5())
 end
 

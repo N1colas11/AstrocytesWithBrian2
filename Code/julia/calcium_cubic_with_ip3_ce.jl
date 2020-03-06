@@ -96,7 +96,7 @@ class Parameters:
         self.K_3  = 1.0e-3 # *mole/meter**3            # IP_3 affinity of IP_3-3K
 
         #self.O_3K = 4.5 # *umolar/second     # Maximal rate of IP_3 degradation by IP_3-3K
-        self.O_3K = 4.5e-3 # mole/meter^3/second     # Maximal rate of IP_3 degradation by IP_3-3K
+        self.O_3K = 4.5e-3 # *mol/second     # Maximal rate of IP_3 degradation by IP_3-3K
 
         # IP5 degradation
         self.o_5P = 0.05 #/second           # Maximal rate of IP_3 degradation by IP-5P
@@ -114,7 +114,7 @@ class Parameters:
 
         # Volume of an average soma
         #self.Lambda = 2100 #*umeter**3
-        self.Lambda = 2100e-18 #meter**3
+        self.Lambda = 2100e-18 #umeter**3
         # Not sure about this
         self.rho_A = 0.18                 # ER-to-cytoplasm volume ratio ?
         self.rho = self.rho_A / (1.+self.rho_A)     # ER-to-cytoplasm volume ratio ?
@@ -230,9 +230,9 @@ class RHS():
         J_Ce = diff_Ce = 0
         J_I = diff_I = 0
 
-        rhs_C  = J_C + diff_C
-        rhs_Ce = J_Ce + diff_Ce
-        rhs_I  = J_I + diff_I
+        #rhs_C  = J_C + diff_C
+        #rhs_Ce = J_Ce + diff_Ce
+        #rhs_I  = J_I + diff_I
 
         #dI/dt = (Jbeta + Jdelta - J3K - J5P) / (Lambda*(1-rho)) + 1*coupling_CE   : mole/meter**3
         #dC/dt = 1*coupling_C + 1.*coupling_electro + 0.*electro_diffusion + Jr + J1 - Jp  : mole / meter**3
