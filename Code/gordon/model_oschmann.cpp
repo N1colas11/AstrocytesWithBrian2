@@ -445,8 +445,8 @@ void ModelOschmann::reactionTerm(const RVVEC& u, RVVEC& reaction_term, REAL t)
     Globals g;
     /***************************************** Flux Description *********************************************************************
     * - as defined in De Pitta 2009a - Glutamate Regulation of Calcium and IP3 Oscillatiing and Pulsating Dynamics in Astorcytes    * 
-    * Notes:                                                            *
-    *    -v5p is a linearized approximation of michaelis-menten dynamics of the degradation.                    * 
+	* Notes:                                                            *
+	*    -v5p is a linearized approximation of michaelis-menten dynamics of the degradation.                    * 
     *        *this can only be used if IP3 values are less than 10 micoMole                            * 
     *    -vdelta is Ca2+ dependent IP3 production                                        *
     *    -maximal vglu rate is influenced by Ca2+ (>10 microMole) which is not considered due to Ca2+ constraints        *

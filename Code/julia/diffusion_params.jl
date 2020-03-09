@@ -1,4 +1,4 @@
-using DifferentialEquations, Plots, BenchmarkTools
+using DifferejntialEquations, Plots, BenchmarkTools
 include("GlobalParameters.jl")
 import .globalParameters_mod: globalParametersCorrect, globalParametersTest
 getParams = globalParametersTest
@@ -10,6 +10,30 @@ function coupled!(du, u, p, t)
     dc2 = β*c2  + D2 * (c1-c2)
     du .= [dc1, dc2]  # note the broadcast operator!
 end
+
+var = []
+function coupledd!(du, u, p, t)
+    α, β, D1, D2 = p
+    c1, c2 = u
+    dc1  = α*c1 + D1 * (c2-c1)
+    dc2 = β*c2  + D2 * (c1-c2)
+    push!(var, c2)
+    du .= [dc1, dc2]  # note the broadcast operator!
+end
+
+u0 = rand(2)
+tspan = (0.,10.)
+pars = [-.2, -.1, 1., 1.]
+prob = ODEProblem(coupledd!, u0, tspan, pars)
+sol = solve(prob, Tsit5())
+println("size(l_dc2)= ", size(l_dc2))
+println("nb time steps= ", size(sol.t)
+
+
+
+
+
+
 
 
 function Hill(x, p, n)

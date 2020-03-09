@@ -44,6 +44,7 @@ lJ1 = []
 lJleak = []
 lJSERCA = []
 lJIPR = []
+lJβ = []
 lCount = []
 
 function Cresswell!(du, u, p, t)
@@ -74,10 +75,10 @@ function Cresswell!(du, u, p, t)
     #J1   = @. (4 *p[:P_CE]/p[:r]) * VVT * p[:dv_ER] * (C * exp(-2 * p[:dv_ER] / VVT) - Ce) / (exp(-xxx) - 1.) #: mole/meter**3/second  # dv_ER
     #Jp   = @. (2 *p[:r]*p[:d_ER])/(p[:N_A]*dR2) * p[:Omega_u] * p[:eta_p] * C^2 / (C^2 + p[:K_P]^2) #: mole/meter**3/second # d_ER, N_A, Omega_u, eta_p, K_p
 
-	# Currents, Evan, C, Ce
+
 	minf    = @. Hill(I,p[:d1],1) * Hill(C,p[:d5],1)
     Jleak   = @. p[:vLeak] * (Ce-C)
-    JIPR    = @. p[:vIPR] * minf^3 * h^3 * (C-Ce)
+    JIPR    = @. p[:vIPR] * (minf*h)^3 * (C-Ce)
     JSERCA  = @. p[:vSERCA] * Hill(C,p[:d5],2)
 
     # All three currents have the same units
@@ -94,20 +95,25 @@ function Cresswell!(du, u, p, t)
 	# Model used by Evan Cresswell for C, Ce
     #rhs_C  = @. JIPR - JSERCA + Jleak  #: mole / meter**3
     #rhs_Ce = @. -(1. / p[:rho_A]) * (JIPR - JSERCA + Jleak)  #: mole / meter**3
-
     # Endoplasmic Reticulum Dynamnics
     # J1 is electro coupling (turn off because of exponential)
-    Jbeta  = 0  #*mole/meter**3/second  : mole/meter**3/second
-    Jdelta = @. p[:o_delta] * (p[:k_delta]/(I+p[:k_delta])) * (C^2/(C^2+p[:K_delta]^2)) #: mole/second  # not sure about units, o_delta, k_delta, K_delta
-    J5P    = @. p[:o_5P] * (I/(I+p[:K_5P])) #: mole/second # o_5P, K_5P
-    J3K    = @. p[:o_3K] * (C^4/(C^4+p[:K_D]^4)) * (I/(I+p[:K_3])) #: mole/second # o_3K, K_D, K_3
+    J_β = sin(2*π*t)^10  #*mole/meter**3/second  : mole/meter**3/second
+    push!(lJβ, J_β)
+	J_δ = @. p[:o_δ]  * Hill(p[:k_δ], I, 1) * Hill(C, p[:K_δ], 2)
+    J5P = @. p[:o_5P] * Hill(I, p[:K_5P], 1)  #: mole/second # o_5P, K_5P
+    J3K = @. p[:o_3K] * Hill(C, p[:K_D], 4) * Hill(I, p[:K_3], 1) #: mole/second # o_3K, K_D, K_3
 
     # assume L constant (CHECK)
-    Tot_I  = I                #: mole/meter**3  (sum of Ce in two half compartments in Brian2 code)
-    coupling_I  = @. (4*p[:D_I]  / p[:L]^2) * (I  - I)  # : mole/second/meter**3 (summed) (CHECK)
+    #Tot_I  = I                #: mole/meter**3  (sum of Ce in two half compartments in Brian2 code)
+    #coupling_I  = @. (4*p[:D_I]  / p[:L]^2) * (I  - I)  # : mole/second/meter**3 (summed) (CHECK)
 
     # Open Channel dynamics
-    OmegaH = @. (p[:Omega_2]*(I+p[:d_1]) + p[:O_2]*(I+p[:d_3])*C) / (I + p[:d_3]) #: Hz # Omega_2, O_2, d_1, d_3
+    #OmegaH = @. (p[:Omega_2]*(I+p[:d_1]) + p[:O_2]*(I+p[:d_3])*C) / (I + p[:d_3]) #: Hz # Omega_2, O_2, d_1, d_3
+    Q2     = @. p[:d2] * (I + p[:d1]) / (I + p[:d3])
+	# hinf   = @. q2(p) / (Q2(p) + c) ;
+	# tauh   = @. 1. / ( a2 * ( q2(p) + c  )  ) ;
+	# OmegaH = 1/tauh
+    OmegaH = @. p[:a2] * (Q2 + C)
     hinf   = @. p[:d_2] * (I + p[:d_1]) / (p[:d_2]*(I + p[:d_1]) + (I + p[:d_3])*C) #: 1 # d_2, d_1, d_3
 
     #-----------------------------
@@ -118,7 +124,8 @@ function Cresswell!(du, u, p, t)
     nb_connections = 1
 
     dh  = @. OmegaH * (hinf - h) #: 1
-    dI  = @. (Jbeta + Jdelta - J3K - J5P) / (p[:Lambda]*(1-p[:rho])) #: mole/meter**3
+    #dI  = @. (Jbeta + Jdelta - J3K - J5P) / (p[:Lambda]*(1-p[:rho])) #: mole/meter**3
+    dI  = @. (J_β + J_δ - J3K - J5P)
     #println("dC= ", dC)
 
     #du .= dC, dCE, dI, dh  # .= to force update of list via reference
@@ -140,8 +147,8 @@ function Cresswell!(du, u, p, t)
     #  J3K: ``goes to -10^-12  (NOT GOOD)
     #  J5P: ``goes to -10^-13  (NOT GOOD) (goes to -.6 if I do not normalized by volume)
 
-    println("Jbeta, Jdelta, J3K, J5P = ", Jbeta, Jdelta, J3K, J5P)
-    dI  = @. (1. *Jbeta + 1. *Jdelta - 1. *J3K - 1. *J5P) # / (p[:Lambda]*(1-p[:rho])) #: mole/meter**3
+    println("Jbeta, Jdelta, J3K, J5P = ", J_β, J_δ, J3K, J5P)
+    dI  = @. (1. *J_β + 1. * J_δ - 1. *J3K - 1. *J5P) # / (p[:Lambda]*(1-p[:rho])) #: mole/meter**3
     dh  = @. OmegaH * (hinf - h) #: 1
     #du .= dC, dCE, dI, dh  # .= to force update of list via reference
     #dC = [0,0]
@@ -181,7 +188,7 @@ end
 
 u0 = initialConditions()
 pars = getParams()
-tspan = (0., 10.)  # make these real
+tspan = (0., 300.)  # make these real
 #u0 = [.1, .2, .3, .4]``
 # We have 8 equations. How to collect them?
 prob = ODEProblem(Cresswell!, u0, tspan, pars)  # d is a parameter dictionary
@@ -205,4 +212,4 @@ print(size(lJ1[:,1]))
 #for i ∈ 1:8
     #print("i= ", i, ", sol= ", sol[i,:], "\n")
 #end
-#
+plot(lJβ, label(:J_β))

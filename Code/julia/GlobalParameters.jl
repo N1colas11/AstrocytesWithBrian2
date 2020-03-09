@@ -147,6 +147,23 @@ function globalParametersEvan()
 	d[:vLeak] = 0.11 # sec^-1
 	d[:d1] = 0.13e-3 # mole m^-3
 	d[:d5] = 0.08234e-3 # mole m^-3
+	# open channels
+	d[:d2] = 1.049e-3 # mole m^-3
+	d[:d1] = 0.13e-3  # mole m^-3
+	d[:d3] = 0.9434e-3 # mole m^-3
+	d[:a2] = 0.20e-3 # mole m^-3 s^-1
+	# IP3 (J_δ)
+	d[:o_δ] = .025e-3 # Mole m^-3 s^-1
+	d[:K_δ] = 0.5e-3   # Mole m^-3, Ca2+ affinity of PLCδ
+	d[:k_δ] = 1.e-3  # Mole m^-3, IP3 inhibiting affinity   // Oschmann2009: 1.5 | COMPGLIO pg130: 1.
+	# IP3 (J_δ)
+	# V_δ
+	#V3K
+	#KD
+	#K3
+	#O5
+	#K_δ
+	#κ_δ
 	# End Evan Parameters
     return d
 end
