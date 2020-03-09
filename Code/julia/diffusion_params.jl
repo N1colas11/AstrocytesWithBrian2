@@ -19,6 +19,7 @@ end
 lJp = []
 lJr = []
 lJ1 = []
+lCount = []
 
 function CIh!(du, u, p, t)
     #C, Ce, I, h = u
@@ -26,6 +27,7 @@ function CIh!(du, u, p, t)
     Ce = @view(u[3:1:4])
     I = @view(u[5:1:6])
     h = @view(u[7:1:8])
+    push!(lCount, 1)
     #println("... Ce= ", Ce)
 
     Tot_C = C
@@ -118,8 +120,9 @@ function CIh!(du, u, p, t)
     # Jr: Increase from .2 to 1 in time 1
     # J1: Increase from .2 to 150 in time 15
     # Jp: Constant solution
-    dC  = @. 1. *Jr + 1. *J1 - 1. *Jp
-    dCE = @. 1. *coupling_Ce + 1. *Jp/(p[:rho]*p[:Lambda]) - 1. * (Jr + J1)  #: mole/meter**3
+    # GE: divde Jp by Lambda (2020-03-09)
+    dC  = @. 1. *Jr + 1. *J1 - 1. *Jp / p[:Lambda]
+    dCE = @. 0. *coupling_Ce + 1. *Jp/(p[:rho]*p[:Lambda]) - 1. * (Jr + J1)  #: mole/meter**3
     #  Jbeta: always zero
     #  Jdelta: goes to 3^4
     #  J3K: ``goes to -10^-12  (NOT GOOD)
@@ -154,7 +157,7 @@ end
 
 u0 = initialConditions()
 pars = getParams()
-tspan = (0., 1.e-6)  # make these real
+tspan = (0., 2.e-7)  # make these real
 #u0 = [.1, .2, .3, .4]``
 # We have 8 equations. How to collect them?
 #CIh!(du, u0, p, t)

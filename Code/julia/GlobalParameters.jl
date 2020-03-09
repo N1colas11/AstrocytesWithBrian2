@@ -1,6 +1,6 @@
 module globalParameters_mod
 export globalParametersCorrect
-export globalParametersTest
+export globalParametersEvan
 
 #--------------------------------------------------------------
 function globalParametersCorrect()
@@ -72,7 +72,8 @@ function globalParametersCorrect()
     return d
 end
 #-----------------------------------------------------------
-function globalParametersTest()
+function globalParametersEvan()
+    # Try to duplicate Evan's model as much as possible
     d = Dict()
     d[:Rgas] = 8.31   # joule / kelvin / mole
     d[:D_I] = 5.3e-10 # Hz * meter^2
@@ -89,6 +90,7 @@ function globalParametersTest()
     d[:Vrest] = -80. # Volt
     d[:Ce] = 1.800  #  mole/meter**3]
     d[:Ce] = 1.e-4  #  mole/meter**3]  # WHICH ONE TO CHOOSE?
+
 
     d[:O_delta] = 0.6e-3  # Hz * mole/meter^3
     d[:k_delta] = 1.5e-3  # mole/meter^3
@@ -138,6 +140,14 @@ function globalParametersTest()
     d[:O_5P] = 0.05e-21   # mole/meter**3 * Lambda * (1-rho) / second
     d[:F] = 0.1  # ALREADY DEFINED?
     d[:D] = 0.05
+
+	# Evan parameters
+	d[:vIPR] = 6  # sec^-1
+	d[:vSERCA] = 4.4e-3  # mole m^-3 s^-1 (1 Molar = 1 Mole/liter = 10^3 mole/meter^3)
+	d[:vLeak] = 0.11 # sec^-1
+	d[:d1] = 0.13e-3 # mole m^-3
+	d[:d5] = 0.08234e-3 # mole m^-3
+	# End Evan Parameters
     return d
 end
 #---------------------------------------------
