@@ -46,6 +46,7 @@ lJSERCA = []
 lJIPR = []
 lJβ = []
 lCount = []
+lTime = []
 
 function Cresswell!(du, u, p, t)
     C  = @view(u[1:1:2])
@@ -99,6 +100,9 @@ function Cresswell!(du, u, p, t)
     # J1 is electro coupling (turn off because of exponential)
     J_β = sin(2*π*t)^10  #*mole/meter**3/second  : mole/meter**3/second
     push!(lJβ, J_β)
+	println("t= ", t, ",  typeof(t)= ", typeof(t))
+	push!(lTime, t)
+
 	J_δ = @. p[:o_δ]  * Hill(p[:k_δ], I, 1) * Hill(C, p[:K_δ], 2)
     J5P = @. p[:o_5P] * Hill(I, p[:K_5P], 1)  #: mole/second # o_5P, K_5P
     J3K = @. p[:o_3K] * Hill(C, p[:K_D], 4) * Hill(I, p[:K_3], 1) #: mole/second # o_3K, K_D, K_3
@@ -203,6 +207,7 @@ println("--------------------")
 #plot(sol_interp[1,:])
 println(u0)
 plotSol(sol)
+plot(lTime, lJβ[1:end-1], title="lJβ")
 #plot!(p, sol.t, sol[7,:])
 print(sol.t)
 #print(lJ1[1,:])
@@ -212,4 +217,5 @@ print(size(lJ1[:,1]))
 #for i ∈ 1:8
     #print("i= ", i, ", sol= ", sol[i,:], "\n")
 #end
-plot(lJβ, label(:J_β))
+lJβ
+plot(time, lJβ)
