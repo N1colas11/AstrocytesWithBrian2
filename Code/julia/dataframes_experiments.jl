@@ -1,4 +1,5 @@
 using DifferentialEquations, Plots, BenchmarkTools
+using DataFrames, Pandas
 include("GlobalParameters.jl")
 import .globalParameters_mod: globalParametersCorrect, globalParametersTest
 getParams = globalParameters_mod.globalParametersEvan
@@ -48,34 +49,38 @@ lJβ = []
 lCount = []
 lTime = []
 
-function getCurrents(C, Ce, I, h, t, p)
-	cu = Dictt()
-	"""
-	cu[:minf]    = @. Hill(I,p[:d1],1) * Hill(C,p[:d5],1)
-	cu[:Jleak]   = @. p[:vLeak] * (Ce-C)
-	cu[:JIPR]    = @. p[:vIPR] * (cu[:minf]*h)^3 * (C-Ce)
-	cu[:JSERCA]  = @. p[:vSERCA] * Hill(C,p[:d5],2)
-	cu[:J_β]     = sin(2*π*t)^10  #*mole/meter**3/second  : mole/meter**3/second
-	cu[:J_δ]     = @. p[:o_δ]  * Hill(p[:k_δ], I, 1) * Hill(C, p[:K_δ], 2)
-	cu[:J5P]     = @. p[:o_5P] * Hill(I, p[:K_5P], 1)  #: mole/second # o_5P, K_5P
-	cu[:J3K]     = @. p[:o_3K] * Hill(C, p[:K_D], 4) * Hill(I, p[:K_3], 1) #: mole/second # o_3K, K_D, K_3
-	cu[:Q2]      = @. p[:d2] * (I + p[:d1]) / (I + p[:d3])
-	cu[:OmegaH]  = @. p[:a2] * (cu[:Q2] + C)
-	cu[:hinf]    = @. p[:d_2] * (I + p[:d_1]) / (p[:d_2]*(I + p[:d_1]) + (I + p[:d_3])*C) #: 1 # d_2, d_1, d_3
-	"""
-	minf    = @. Hill(I,p[:d1],1) * Hill(C,p[:d5],1)
-	Jleak   = @. p[:vLeak] * (Ce-C)
-	JIPR    = @. p[:vIPR] * (cu[:minf]*h)^3 * (C-Ce)
-	JSERCA  = @. p[:vSERCA] * Hill(C,p[:d5],2)
-	J_β     = sin(2*π*t)^10  #*mole/meter**3/second  : mole/meter**3/second
-	J_δ     = @. p[:o_δ]  * Hill(p[:k_δ], I, 1) * Hill(C, p[:K_δ], 2)
-	J5P     = @. p[:o_5P] * Hill(I, p[:K_5P], 1)  #: mole/second # o_5P, K_5P
-	J3K     = @. p[:o_3K] * Hill(C, p[:K_D], 4) * Hill(I, p[:K_3], 1) #: mole/second # o_3K, K_D, K_3
-	Q2      = @. p[:d2] * (I + p[:d1]) / (I + p[:d3])
-	OmegaH  = @. p[:a2] * (cu[:Q2] + C)
-	hinf    = @. p[:d_2] * (I + p[:d_1]) / (p[:d_2]*(I + p[:d_1]) + (I + p[:d_3])*C) #: 1 # d_2, d_1, d_3
 
-	return cu
+#cols = [:minf, :Jleak, :JIPR, :JSERCA, :J_β, :J_δ, :J5P, :J3K, :Q2, :OmegaH, :hinf]
+#df = DF.DataFrame(VF, cols)
+#let df = DF.DataFrame(VF, cols)
+	function getCurrents(C, Ce, I, h, t, p)
+		minf    = @. Hill(I,p[:d1],1) * Hill(C,p[:d5],1)
+		Jleak   = @. p[:vLeak] * (Ce-C)
+		JIPR    = @. p[:vIPR] * (cu[:minf]*h)^3 * (C-Ce)
+		JSERCA  = @. p[:vSERCA] * Hill(C,p[:d5],2)
+		J_β     = [sin(2*π*t)^10, cos(2*π*t)]  #*mole/meter**3/second  : mole/meter**3/second  (just to have a vector)
+		J_δ     = @. p[:o_δ]  * Hill(p[:k_δ], I, 1) * Hill(C, p[:K_δ], 2)
+		J5P     = @. p[:o_5P] * Hill(I, p[:K_5P], 1)  #: mole/second # o_5P, K_5P
+		J3K     = @. p[:o_3K] * Hill(C, p[:K_D], 4) * Hill(I, p[:K_3], 1) #: mole/second # o_3K, K_D, K_3
+		Q2      = @. p[:d2] * (I + p[:d1]) / (I + p[:d3])
+		OmegaH  = @. p[:a2] * (cu[:Q2] + C)
+		hinf    = @. p[:d_2] * (I + p[:d_1]) / (p[:d_2]*(I + p[:d_1]) + (I + p[:d_3])*C) #: 1 # d_2, d_1, d_3
+		cols = (minf, Jleak, JIPR, JSERCA, J_β, J_δ, J5P, J3K, Q2, OmegaH, hinf)
+		return cols
+		# return a named tuple
+		#V = Vector{Any}
+		#named_tuple = NamedTuple(cols, Tuple(V,V,V,V,V,V,V,V,V,V,V))
+		#return cols, ()
+
+		#if length(df) == 0
+            #VF = Vector{Any}
+            #eltype = [VF, VF, VF, VF, VF, VF, VF, VF, VF, VF, VF]
+			#df = DataFrames.DataFrame(cols)
+			#print(typeof(df))
+		#else
+		    #push!(df, cols)
+		#return df
+	end
 end
 
 function Cresswell!(du, u, p, t)
@@ -95,15 +100,14 @@ function Cresswell!(du, u, p, t)
 	#cu = getCurrents(C, Ce, I, h, t, p)
 
     # GE: divde Jp by Lambda (2020-03-09)
-    dC  = @.                     (JIPR - JSERCA + Jleak)  #: mole / meter**3
-    dCE = @. -(1. / p[:rho_A]) * (JIPR - JSERCA + Jleak)  #: mole / meter**3
-    dI  = @. (J_β + J_δ - J3K - J5P)
-    dh  = @. OmegaH * (hinf - h) #: 1
-
     #dC  = @.                     (cu[:JIPR] - cu[:JSERCA] + cu[:Jleak])  #: mole / meter**3
     #dCE = @. -(1. / p[:rho_A]) * (cu[:JIPR] - cu[:JSERCA] + cu[:Jleak])  #: mole / meter**3
     #dI  = @. (cu[:J_β] + cu[:J_δ] - cu[:J3K] - cu[:J5P])
     #dh  = @. cu[:OmegaH] * (cu[:hinf] - h) #: 1
+    dC  = @.                     (JIPR - JSERCA + Jleak)  #: mole / meter**3
+    dCE = @. -(1. / p[:rho_A]) * (JIPR - JSERCA + Jleak)  #: mole / meter**3
+    dI  = @. (J_β + J_δ - J3K - J5P)
+    dh  = @. OmegaH * (hinf - h) #: 1
 
     du[1:2] = dC
     du[3:4] = dCE #[0,0]
@@ -128,8 +132,39 @@ function callback(u, t, integrator)
     Ce = @view(u[3:1:4])  # Calcium in ER
     I  = @view(u[5:1:6])  # IP3
     h  = @view(u[7:1:8])
+	println("iside callback")
 	# How to I get my parameter array as a local variable?
-	return currents = getCurrents(C, Ce, I, h, t, pars)
+	#J5P, J3K, J_β, J_δ, Jleak, JIPR, JSERCA, hinf, OmegaH, minf, Q2 = getCurrents(C, Ce, I, h, t, p)
+	currents = getCurrents(C, Ce, I, h, t, pars)
+	println("currents= ", currents)
+	try
+		println("***** inside try ****")
+	    push!(df, currents)
+		println("try, df= ", df)
+    catch
+		V = Vector{Any}
+		S = Float64
+		println("**** inside catch *****")
+        #df = DF.DataFrame([V,V,V,V,V,V,V,V,V,V,V], [:J_5P, :J_3K, :J_β, :J_δ, :Jleak, :JIPR, :JSERCA, :hinf, :OmegaH, :minf, :Q2])
+		V = Vector{Any}
+		cols = (:minf, :Jleak, :JIPR, :JSERCA, :J_β, :J_δ, :J5P, :J3K, :Q2, :OmegaH, :hinf)
+		#tuple1 = Tuple{V,V,V}
+		#tuple = Tuple{V,V,V,V,V,V,V,V,V,V,V}
+		#named_tuple = NamedTuple(cols, Tuple{V,V,V,V,V,V,V,V,V,V,V})
+		named_tuple = NamedTuple{cols, Tuple{V,V,V,V,V,V,V,V,V,V,V}}
+		push!(DF.DataFrame(), named_tuple)
+		println("catch, df= ", df)
+	    println("catch, currents= ", currents)
+	    println("catch, after push!")
+		println("df.names= ", names(df))
+		println("catch, after push, df= ", df)
+		push!(df, currents)
+		println("catch, df= ", df)
+		println("catch, df= ", df.J_5P)
+	end
+	println("after try/catch")
+	#return currents = getCurrents(C, Ce, I, h, t, pars)
+	return df
 end
 
 a = [3,4,5]; println(typeof(a))
@@ -145,14 +180,13 @@ function plotSol(sol)
 	plot(p1,p2,p3,p4, layout=(2,2))
 end
 
+saved_values = SavedValues(Float64, Vector{Any})
 #saved_values = SavedValues(Float64, Dict{Any,Any})
-#saved_values = SavedValues(Float64, Vector{Any})
-saved_values = SavedValues(Float64, Dict{Any,Any})
 cb = SavingCallback(callback, saved_values)
 
 u0 = initialConditions()
 pars = getParams()
-tspan = (0., 300.)  # make these real
+tspan = (0., 10.)  # make these real
 #u0 = [.1, .2, .3, .4]``
 # We have 8 equations. How to collect them?
 prob = ODEProblem(Cresswell!, u0, tspan, pars)  # d is a parameter dictionary
@@ -170,3 +204,18 @@ plotSol(sol)
 plot(lTime, lJβ[1:end], title="lJβ")
 #plot!(p, sol.t, sol[7,:])
 print(sol.t)
+
+function tst()
+	V = Vector{Any}
+	cols = (:minf, :Jleak, :JIPR, :JSERCA, :J_β, :J_δ, :J5P, :J3K, :Q2, :OmegaH, :hinf)
+	vals = ([V for i ∈ 1:7])
+	tuple = Tuple([V for i ∈ 1:11])
+	tuple = Tuple([[0.,0.] for i ∈ 1:11])
+	println(tuple)
+	df = DF.DataFrame(tuple)
+	append!(df, tuple)
+	println(df)
+	#named_tuple = NamedTuple{cols, Tuple{V,V,V,V,V,V,V,V,V,V,V}}
+	#push!(DF.DataFrame(), named_tuple)
+end
+tst()

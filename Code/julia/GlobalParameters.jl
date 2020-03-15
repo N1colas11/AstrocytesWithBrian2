@@ -1,3 +1,4 @@
+# Minimal working example
 module globalParameters_mod
 export globalParametersCorrect
 export globalParametersEvan
