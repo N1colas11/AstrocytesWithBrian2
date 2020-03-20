@@ -25,6 +25,7 @@ function globalParametersCorrect()
     d[:O_delta] = 0.6e-3  # Hz * mole/meter^3
     d[:k_delta] = 1.5e-3  # mole/meter^3
     d[:K_delta] = 0.1e-3  # mole/meter^3
+    d[:O_beta] = 5.5e-3  # μMsec^-1 = mole meter^-3 sec^-1
     d[:K_D] = 0.7e-3  # mole/meter^3
     d[:K_3] = 1.0e-3  # mole/meter^3
     d[:O_3K] = 4.5e-3  # Hz*mole/meter^3
@@ -157,6 +158,14 @@ function globalParametersEvan()
 	d[:o_δ] = .025e-3 # Mole m^-3 s^-1
 	d[:K_δ] = 0.5e-3   # Mole m^-3, Ca2+ affinity of PLCδ
 	d[:k_δ] = 1.e-3  # Mole m^-3, IP3 inhibiting affinity   // Oschmann2009: 1.5 | COMPGLIO pg130: 1.
+	d[:O_β] = 5.5e-3 # Mole m^-3 s^-1  (from "Evan thesis")
+	d[:rhs_IP3_β] = 0.001
+	d[:tk] = 1.  # next Poisson Spike
+
+	# Diffusion Coefficient
+	d[:DCa] = 0.
+	d[:DCe] = 0.
+	d[:DI]  = 5. # sec^-1  [varies between 1 and 10]
 	# IP3 (J_δ)
 	# V_δ
 	#V3K

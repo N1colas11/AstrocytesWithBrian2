@@ -26,8 +26,8 @@ tspan = (0.,10.)
 pars = [-.2, -.1, 1., 1.]
 prob = ODEProblem(coupledd!, u0, tspan, pars)
 sol = solve(prob, Tsit5())
-println("size(l_dc2)= ", size(l_dc2))
-println("nb time steps= ", size(sol.t)
+println("size(var)= ", size(var))
+println("nb time steps= ", size(sol.t))
 
 
 

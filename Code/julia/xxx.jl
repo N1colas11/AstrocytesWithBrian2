@@ -1,6 +1,2 @@
-module globalParameters_mod
-export globalParametersCorrect
-export globalParametersTest
-
-#---------------------------------------------
+module aaa
 end
