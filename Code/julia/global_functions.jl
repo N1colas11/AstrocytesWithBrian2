@@ -101,13 +101,14 @@ function generatePoissonEvents!(tk::Vector{Float64}, λ::Float64)
 	pl = scatter(tk, x->1, title="Poisson train tk")
 	display(pl)
 
-	return 
+	return
 end
 
 #tk = Vector{Float64}(undef, 50)
 #generatePoissonEvents!(tk, 3.)
 #----------------------------------------------------------------------
-function generatePoissonEvents(nb_events::Int64, λ::Float64, dt::Float64)
+# Preferred routine to use
+function generatePoissonEvents(nb_events::Int64, λ::Float64)
 	# Generate time spikes according to a Poisson Process
 	# 1) generate nb_events in U(0.,1.)
 	# For each of nb_times time intervals, check the next random number against λ δt and create an
@@ -116,48 +117,28 @@ function generatePoissonEvents(nb_events::Int64, λ::Float64, dt::Float64)
 	#dist = Distributions.Poisson(10.)
 	#dist = Distributions.Normal(11., 3.)
 
-	# Version 1. We will run at constant time steps.
-	nb_trials = 20
-	println("nb_trials: ", nb_trials)
-	#trials = rand(dist, 10000)
-	# Uniform distribution
-	nb_rands = 100
-	rands = rand(nb_rands)
-	#println("rands: ", rands)
-	R = λ * dt
-	println("R= ", R)
-	bools = @. rands < R
-	#println("bools= ", bools)
-	max_true = sum(bools)
-	frac_true = max_true / nb_rands
-	println("frac_true= ", frac_true)
-
 	# get samples from an exponential distribution
 	dist = Distributions.Exponential(λ)
-	expon_samples = rand(dist, nb_rands)
-	#println("expon_samples= ", expon_samples)
+	expon_samples = rand(dist, nb_events)
 
-	# Randominze the order of the expon_samples (ISIs)
-	#idx = randperm(expon_samples)
+	# Randomize the order of the expon_samples (ISIs)
 	shuffled_intervals = shuffle(expon_samples)
-	#println("sum(Y1),Sum(Y2)= ", sum(Y1), ",  ", sum(Y2))
 
 	# Compute Spike times, starting from zero
-	bins = Vector{Float64}(undef,nb_trials)
+	bins = Vector{Float64}(undef, nb_events)
 
 	t0 = 0.
 	tk = cumsum(shuffled_intervals)
-	println("Y= ", shuffled_intervals[1:10])
-	println("tk= ", tk[1:10])
 
+	#=
 	#plot tk (Must be a better way)
 	y = [1. for i in 1:length(tk)]
-	#pl = scatter(tk, y, title="Poisson train tk")
 	pl = scatter(tk, x->1, title="Poisson train tk")
 	display(pl)
 	println(typeof(tk))
+	=#
 
-	return
+	return tk
 end
 
 #for i in 1:1
