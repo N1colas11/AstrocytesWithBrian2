@@ -102,9 +102,8 @@ function Covid!(du, u, p, t)
     du[7] = +p[:γu]*I                                           # r
     du[8] = +p[:δu]*I                                           # m
     #du[8] = p[:N] - sum(du[2:8])
-    old   = I+S+R+M
-    young = i+s+r+m
-    println("young,old: ", young/p[:N], "  , ", old/p[:N], "  , ", p[:N])
+    #old   = I+S+R+M
+    #young = i+s+r+m
 
       #d/dt [i + s + r + m] = (-p[:αu]*I + p[:γu] + p[:δu]) * I = 0
       #d/dt [I + S + R + M] = (-p[:αo]*I + p[:γo] + p[:δo]) * I = 0
@@ -119,20 +118,22 @@ function Covid!(du, u, p, t)
 end
 
 pp = globalParameters()
-derivedParameters(pp)
-pp[:βuu] *= 10
-u0 = initialConditions(pp)
 tspan = (0., 355.)
 
 function solveProblem(tspan, u0, pp)
 	prob = ODEProblem(Covid!, u0, tspan, pp)  # d is a parameter dictionary
 	@time sol = solve(prob, Tsit5())
-	ss = @. sol[:,:] / pp[:N]
-	ss[1:4,:]
-	t1 = sum(ss[1:4,:], dims=2)
-	t2 = sum(ss[5:8,:], dims=2)
-	s = sum(ss, dims=1)
 	return sol
+end
+
+for boo in .1:.01:.8
+    pp = globalParameters()
+    pp[:βuu] = boo
+    # the cost of reinitializing the parameters is much lower than the solution cost
+    derivedParameters(pp)
+    u0 = initialConditions(pp)
+    solveProblem(tspan, u0, pp)
+	println("boo= ", boo)
 end
 
 function plotSolution(sol)
