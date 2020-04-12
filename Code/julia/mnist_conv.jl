@@ -112,15 +112,9 @@ for epoch_idx = 1:100
         println("==================================")
         println("==> Epoch ", epoch_idx)  # epoch marker
         global best_acc, last_improvement
-        # Train for a single epoch
-        #println("before train")
-        #println("size train_set: " ,size(train_set))
-        #println("size train_set[0]: ", length(train_set[1]))
-        # batch size: 128
-        #println("train_set[1][1] |> size: ", train_set[1][1] |> size) #data
-        #println("train_set[1][2] |> size: ", train_set[1][2] |> size) #labels
 
         #Flux.train!(loss, params(model), train_set, opt, cb=evalcb)
+		## First argument to throttle should be a function with no arguments
         Flux.train!(loss, params(model), train_set, opt, cb=throttle(evalcb, 10))
 
         println("before anynan")
